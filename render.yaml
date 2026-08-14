@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: metricas-api
+    runtime: node
+    rootDir: api
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: PORT
+        value: "10000"
+      - key: NODE_ENV
+        value: production
+      - key: JOB_EXECUTION_MODE
+        value: direct
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: MERCADO_LIVRE_CLIENT_ID
+        sync: false
+      - key: MERCADO_LIVRE_CLIENT_SECRET
+        sync: false
+      - key: MERCADO_LIVRE_REDIRECT_URI
+        sync: false
+      - key: MERCADO_LIVRE_AUTH_BASE_URL
+        value: https://auth.mercadolivre.com.br
+      - key: MERCADO_LIVRE_API_BASE_URL
+        value: https://api.mercadolibre.com
+    buildFilter:
+      paths:
+        - api/**
+
+# O frontend (web/) NAO entra aqui -- vai para a Vercel (rootDir: web,
+# configurado direto no dashboard da Vercel), nao no Render, conforme a
+# stack definida. No repo antigo o web tambem estava no Render; isso muda
+# nesta reescrita.
