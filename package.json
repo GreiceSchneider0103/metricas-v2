@@ -2,10 +2,6 @@
   "name": "metricas-v2",
   "version": "0.1.0",
   "private": true,
-  "workspaces": [
-    "web",
-    "api"
-  ],
   "scripts": {
     "dev:web": "npm --prefix web run dev",
     "dev:api": "npm --prefix api run dev",
