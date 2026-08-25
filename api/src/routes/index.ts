@@ -4,6 +4,7 @@ import { mercadoLivreRoutes, mercadoLivrePublicRoutes } from "../modules/integra
 import { jobRoutes } from "../modules/jobs/routes.js";
 import { cronRoutes } from "../modules/jobs/cron-routes.js";
 import { salesMapRoutes } from "../modules/sales-map/routes.js";
+import { teamRoutes } from "../modules/team/routes.js";
 
 export async function registerRoutes(app: FastifyInstance) {
   await app.register(
@@ -20,6 +21,7 @@ export async function registerRoutes(app: FastifyInstance) {
       await mercadoLivreRoutes(protectedScope);
       await jobRoutes(protectedScope);
       await salesMapRoutes(protectedScope);
+      await teamRoutes(protectedScope);
     },
     { prefix: "/api/v1" }
   );
