@@ -1,4 +1,5 @@
 import { config } from "../config.js";
+import { shiftIsoDate } from "../lib/dates.js";
 import { unwrap } from "../lib/db.js";
 import { supabaseAdmin } from "../lib/supabase.js";
 import { mlGetWithRetry } from "../modules/integrations/mercado-livre/client.js";
@@ -24,12 +25,6 @@ type MercadoLivreOrder = {
 function isRevenueOrder(status: string | undefined, payments: Array<{ status?: string }>) {
   if (status === "paid") return true;
   return payments.some((payment) => payment.status === "approved" || payment.status === "accredited");
-}
-
-function shiftIsoDate(date: string, deltaDays: number) {
-  const value = new Date(`${date}T00:00:00`);
-  value.setDate(value.getDate() + deltaDays);
-  return value.toISOString().slice(0, 10);
 }
 
 // Sincroniza orders/order_items de uma conta ML num intervalo de datas
