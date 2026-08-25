@@ -5,6 +5,7 @@ import { jobRoutes } from "../modules/jobs/routes.js";
 import { cronRoutes } from "../modules/jobs/cron-routes.js";
 import { salesMapRoutes } from "../modules/sales-map/routes.js";
 import { teamRoutes } from "../modules/team/routes.js";
+import { taskRoutes } from "../modules/tasks/routes.js";
 
 export async function registerRoutes(app: FastifyInstance) {
   await app.register(
@@ -22,6 +23,7 @@ export async function registerRoutes(app: FastifyInstance) {
       await jobRoutes(protectedScope);
       await salesMapRoutes(protectedScope);
       await teamRoutes(protectedScope);
+      await taskRoutes(protectedScope);
     },
     { prefix: "/api/v1" }
   );
