@@ -6,6 +6,7 @@ import {
   aggregateListingDailySnapshotForCompany,
   runListingDailySnapshotAggregateJobForYesterday
 } from "../../jobs/listing-daily-snapshot-aggregate.js";
+import { runAlertsEvaluateJob } from "../../jobs/alerts-evaluate.js";
 
 const dateQuerySchema = z.object({
   date: z
@@ -34,5 +35,15 @@ export async function jobRoutes(app: FastifyInstance) {
     return query.date
       ? aggregateListingDailySnapshotForCompany(context.companyId, query.date)
       : runListingDailySnapshotAggregateJobForYesterday(context.companyId);
+  });
+
+  // Fase 6: dispara a avaliacao de alertas manualmente. Sem "date" na query,
+  // avalia o dia anterior completo (mesmo comportamento do cron e do mesmo
+  // motivo do job de agregacao: "hoje" ainda nao tem snapshot fechado).
+  app.post("/jobs/alerts-evaluate", async (request) => {
+    const context = await getAuthContext(request);
+    assertAdmOrMaster(request, context);
+    const query = dateQuerySchema.parse(request.query ?? {});
+    return runAlertsEvaluateJob(context.companyId, query.date);
   });
 }
