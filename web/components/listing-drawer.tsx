@@ -1,15 +1,35 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useApi } from "@/lib/auth-context";
-import type { CalendarListing, LinkedListing } from "@/lib/types";
+import type { CalendarListing, LinkedListing, ListingTimeseriesResponse } from "@/lib/types";
 import { StatusBadge } from "@/components/status-badge";
+import { VarianceBadge } from "@/components/variance-badge";
 
 function lastDayOfMonth(month: string) {
   const [year, monthNumber] = month.split("-").map(Number);
   const day = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
   return `${month}-${String(day).padStart(2, "0")}`;
 }
+
+const RANGE_OPTIONS = [
+  { label: "30 dias", days: 30 },
+  { label: "60 dias", days: 60 },
+  { label: "90 dias", days: 90 }
+];
+
+function isoDaysAgo(days: number) {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() - (days - 1));
+  return date.toISOString().slice(0, 10);
+}
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 export function ListingDrawer({
   listing,
@@ -31,6 +51,9 @@ export function ListingDrawer({
   const [taskTitle, setTaskTitle] = useState("");
   const [creatingTask, setCreatingTask] = useState(false);
   const [taskCreated, setTaskCreated] = useState(false);
+  const [rangeDays, setRangeDays] = useState(30);
+  const [timeseries, setTimeseries] = useState<ListingTimeseriesResponse | null>(null);
+  const [loadingTimeseries, setLoadingTimeseries] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -49,6 +72,27 @@ export function ListingDrawer({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listing.listingId]);
+
+  useEffect(() => {
+    let active = true;
+    setLoadingTimeseries(true);
+    api<ListingTimeseriesResponse>(`/api/v1/sales-map/${listing.listingId}/timeseries`, {
+      query: { from: isoDaysAgo(rangeDays), to: todayIso() }
+    })
+      .then((result) => {
+        if (active) setTimeseries(result);
+      })
+      .catch(() => {
+        if (active) setTimeseries(null);
+      })
+      .finally(() => {
+        if (active) setLoadingTimeseries(false);
+      });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listing.listingId, rangeDays]);
 
   async function handleSaveGoal(event: FormEvent) {
     event.preventDefault();
@@ -139,6 +183,79 @@ export function ListingDrawer({
             <div className="text-xs uppercase text-slate-400">Dias de estoque</div>
             <div className="font-semibold text-slate-800">{listing.daysOfStock !== null ? listing.daysOfStock.toFixed(1) : "-"}</div>
           </div>
+        </div>
+
+        <div className="mb-6 rounded-md border border-slate-200 p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-700">Evolucao de vendas</h3>
+            <div className="flex gap-1">
+              {RANGE_OPTIONS.map((option) => (
+                <button
+                  key={option.days}
+                  type="button"
+                  onClick={() => setRangeDays(option.days)}
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                    rangeDays === option.days ? "bg-brand-600 text-white" : "text-slate-500 hover:bg-slate-100"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {loadingTimeseries && <p className="text-xs text-slate-400">Carregando...</p>}
+
+          {!loadingTimeseries && timeseries && (
+            <>
+              <div className="h-32 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={timeseries.series} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="listingUnitsGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#2f4fc0" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#2f4fc0" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                    <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(value: string) => value.slice(-2)} />
+                    <YAxis tick={{ fontSize: 10 }} allowDecimals={false} width={24} />
+                    <Tooltip
+                      labelFormatter={(value) => `Dia ${String(value)}`}
+                      formatter={(value) => [String(value), "Vendas"]}
+                    />
+                    <Area type="monotone" dataKey="unitsSold" stroke="#2f4fc0" fill="url(#listingUnitsGradient)" strokeWidth={2} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                <div>
+                  <div className="text-slate-400">Vendas</div>
+                  <div className="font-medium text-slate-700">{timeseries.totals.unitsSold}</div>
+                  <VarianceBadge percent={timeseries.variance.unitsSoldPercent} />
+                </div>
+                <div>
+                  <div className="text-slate-400">Receita</div>
+                  <div className="font-medium text-slate-700">{currency.format(timeseries.totals.revenue)}</div>
+                  <VarianceBadge percent={timeseries.variance.revenuePercent} />
+                </div>
+                <div>
+                  <div className="text-slate-400">Pedidos</div>
+                  <div className="font-medium text-slate-700">{timeseries.totals.ordersCount}</div>
+                  <VarianceBadge percent={timeseries.variance.ordersCountPercent} />
+                </div>
+                <div>
+                  <div className="text-slate-400">Visitas</div>
+                  <div className="font-medium text-slate-700">{timeseries.totals.visits}</div>
+                  <VarianceBadge percent={timeseries.variance.visitsPercent} />
+                </div>
+              </div>
+              <p className="mt-2 text-[11px] text-slate-400">
+                Vs. periodo anterior ({timeseries.previousPeriod.from} a {timeseries.previousPeriod.to})
+              </p>
+            </>
+          )}
         </div>
 
         <form onSubmit={handleSaveGoal} className="mb-6 space-y-2 rounded-md border border-slate-200 p-4">

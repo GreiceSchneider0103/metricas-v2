@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getAuthContext } from "../../plugins/auth.js";
 import {
   getLinkedListings,
+  getListingTimeseries,
   getSalesMap,
   getSalesMapCalendar,
   searchListingsForPicker,
@@ -52,6 +53,10 @@ const calendarQuerySchema = filtersSchema.extend({
 });
 
 const listingIdParamsSchema = z.object({ listingId: z.string().uuid() });
+
+const timeseriesQuerySchema = z
+  .object({ from: isoDate, to: isoDate })
+  .refine((value) => value.from <= value.to, { message: "from deve ser <= to", path: ["from"] });
 
 export async function salesMapRoutes(app: FastifyInstance) {
   // Fase 3: mapa de vendas. So le de listings + listing_daily_snapshot (ver
@@ -115,6 +120,15 @@ export async function salesMapRoutes(app: FastifyInstance) {
     const context = await getAuthContext(request);
     const params = listingIdParamsSchema.parse(request.params);
     return { items: await getLinkedListings(context.companyId, params.listingId) };
+  });
+
+  // Serie temporal diaria por anuncio (grafico no drawer) + variacao vs
+  // periodo imediatamente anterior de mesma duracao (ver service.ts).
+  app.get("/sales-map/:listingId/timeseries", async (request) => {
+    const context = await getAuthContext(request);
+    const params = listingIdParamsSchema.parse(request.params);
+    const query = timeseriesQuerySchema.parse(request.query ?? {});
+    return getListingTimeseries({ companyId: context.companyId, listingId: params.listingId, from: query.from, to: query.to });
   });
 
   // Usado pelo autocomplete de "anuncio vinculado" no formulario de
