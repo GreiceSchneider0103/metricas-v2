@@ -65,10 +65,13 @@ export async function getAuthContext(request: FastifyRequest): Promise<AuthConte
     throw request.server.httpErrors.forbidden("Authenticated user does not have access to any active company");
   }
 
+  const userRow = unwrap(await supabaseAdmin.from("users").select("is_platform_admin").eq("id", userId).maybeSingle());
+
   request.authContext = {
     userId,
     companyId: membership.company_id,
-    role: membership.role as CompanyRole
+    role: membership.role as CompanyRole,
+    isPlatformAdmin: userRow?.is_platform_admin ?? false
   };
 
   return request.authContext;
@@ -97,4 +100,14 @@ export function assertRole(request: FastifyRequest, context: AuthContext, allowe
 // checam "ADM" no repo antigo e devem continuar liberadas para master.
 export function assertAdmOrMaster(request: FastifyRequest, context: AuthContext) {
   assertRole(request, context, ["master", "adm"]);
+}
+
+// Master de plataforma (users.is_platform_admin) e diferente do role
+// master/adm/agente por empresa -- e um poder global, nao escopado a
+// company_id nenhuma. Usado pra decidir pedidos de acesso de qualquer
+// empresa e criar novas empresas.
+export function assertPlatformAdmin(request: FastifyRequest, context: AuthContext) {
+  if (!context.isPlatformAdmin) {
+    throw request.server.httpErrors.forbidden("Requer master de plataforma");
+  }
 }

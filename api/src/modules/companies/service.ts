@@ -54,12 +54,27 @@ export async function createCompany(input: { userId: string; name: string }) {
   return company;
 }
 
-export async function searchCompanies(query: string) {
-  const pattern = `%${query.replace(/[%_\\]/g, (match) => `\\${match}`)}%`;
-  const rows = unwrap(
-    await supabaseAdmin.from("companies").select("id, name, slug").ilike("name", pattern).order("name").limit(10)
+// Sem query, lista as empresas em ordem alfabetica (usado pelo seletor de
+// empresa-destino do master de plataforma, que precisa poder navegar a
+// lista inteira, nao so buscar por nome).
+export async function searchCompanies(query?: string) {
+  let request = supabaseAdmin.from("companies").select("id, name, slug").order("name").limit(20);
+  if (query) {
+    const pattern = `%${query.replace(/[%_\\]/g, (match) => `\\${match}`)}%`;
+    request = request.ilike("name", pattern);
+  }
+  return unwrap(await request) ?? [];
+}
+
+// Empresa "onboarding": destino automatico de todo cadastro novo, ate o
+// master de plataforma revisar e mandar a pessoa pra empresa certa. Deve
+// existir exatamente uma (garantido pelo indice unico parcial na migration).
+export async function getOnboardingCompany() {
+  const company = unwrap(
+    await supabaseAdmin.from("companies").select("id, name, slug").eq("is_onboarding", true).maybeSingle()
   );
-  return rows ?? [];
+  if (!company) throw new Error("Nenhuma empresa de onboarding configurada");
+  return company;
 }
 
 export async function listMyCompanies(userId: string) {
