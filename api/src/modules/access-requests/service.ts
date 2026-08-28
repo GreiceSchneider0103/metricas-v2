@@ -102,10 +102,14 @@ export async function hasPendingAccessRequest(userId: string) {
 }
 
 export async function listPendingAccessRequests(companyId: string) {
+  // access_requests tem duas FKs pra users (user_id e reviewed_by) -- embed
+  // sem qualificar fica ambiguo pro PostgREST (mesmo bug de team/service.ts).
   const rows = unwrap(
     await supabaseAdmin
       .from("access_requests")
-      .select("id, user_id, company_id, status, reviewed_by, reviewed_at, created_at, users ( full_name, email )")
+      .select(
+        "id, user_id, company_id, status, reviewed_by, reviewed_at, created_at, users!access_requests_user_id_fkey ( full_name, email )"
+      )
       .eq("company_id", companyId)
       .eq("status", "pending")
       .order("created_at", { ascending: true })
