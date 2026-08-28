@@ -5,7 +5,7 @@ import { useApi } from "@/lib/auth-context";
 import type { IntegrationStatus } from "@/lib/types";
 import { StatusBadge } from "@/components/status-badge";
 
-export default function IntegracoesPage() {
+export function IntegrationsPanel() {
   const api = useApi();
   const [status, setStatus] = useState<IntegrationStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,9 +57,8 @@ export default function IntegracoesPage() {
   }
 
   return (
-    <div className="max-w-3xl space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-900">Integracoes</h1>
+    <div className="space-y-6">
+      <div className="flex items-center justify-end">
         <button
           onClick={handleConnect}
           disabled={connecting}

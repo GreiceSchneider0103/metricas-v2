@@ -5,7 +5,7 @@ import { useApi, useAuth } from "@/lib/auth-context";
 import type { AccessRequest, TeamMember } from "@/lib/types";
 import { StatusBadge } from "@/components/status-badge";
 
-export default function EquipePage() {
+export function TeamPanel() {
   const api = useApi();
   const { activeCompany } = useAuth();
   const canManage = activeCompany?.role === "master" || activeCompany?.role === "adm";
@@ -89,9 +89,7 @@ export default function EquipePage() {
   }
 
   return (
-    <div className="max-w-3xl space-y-6">
-      <h1 className="text-xl font-semibold text-slate-900">Equipe</h1>
-
+    <div className="space-y-6">
       {canManage && (
         <form onSubmit={handleInvite} className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4">
           <div className="min-w-[200px] flex-1">
