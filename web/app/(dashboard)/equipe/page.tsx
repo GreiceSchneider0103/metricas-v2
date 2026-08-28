@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useApi, useAuth } from "@/lib/auth-context";
-import type { TeamMember } from "@/lib/types";
+import type { AccessRequest, TeamMember } from "@/lib/types";
 import { StatusBadge } from "@/components/status-badge";
 
 export default function EquipePage() {
@@ -11,17 +11,23 @@ export default function EquipePage() {
   const canManage = activeCompany?.role === "master" || activeCompany?.role === "adm";
 
   const [members, setMembers] = useState<TeamMember[]>([]);
+  const [requests, setRequests] = useState<AccessRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"adm" | "agente">("agente");
   const [inviting, setInviting] = useState(false);
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
 
   async function loadMembers() {
     setLoading(true);
     try {
       const result = await api<{ items: TeamMember[] }>("/api/v1/team");
       setMembers(result.items);
+      if (canManage) {
+        const pending = await api<{ items: AccessRequest[] }>("/api/v1/team/access-requests");
+        setRequests(pending.items);
+      }
     } catch {
       setError("Nao foi possivel carregar a equipe.");
     } finally {
@@ -32,7 +38,31 @@ export default function EquipePage() {
   useEffect(() => {
     loadMembers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api]);
+  }, [api, canManage]);
+
+  async function handleApprove(request: AccessRequest, requestedRole: "adm" | "agente") {
+    setReviewingId(request.id);
+    try {
+      await api(`/api/v1/team/access-requests/${request.id}/approve`, { method: "POST", body: { role: requestedRole } });
+      await loadMembers();
+    } catch {
+      setError("Nao foi possivel aprovar esse pedido.");
+    } finally {
+      setReviewingId(null);
+    }
+  }
+
+  async function handleReject(request: AccessRequest) {
+    setReviewingId(request.id);
+    try {
+      await api(`/api/v1/team/access-requests/${request.id}/reject`, { method: "POST" });
+      await loadMembers();
+    } catch {
+      setError("Nao foi possivel rejeitar esse pedido.");
+    } finally {
+      setReviewingId(null);
+    }
+  }
 
   async function handleInvite(event: FormEvent) {
     event.preventDefault();
@@ -92,6 +122,43 @@ export default function EquipePage() {
       )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
+
+      {canManage && requests.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="text-sm font-semibold text-slate-700">Solicitacoes pendentes</h2>
+          {requests.map((request) => (
+            <div key={request.id} className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <div>
+                <p className="font-medium text-slate-800">{request.fullName ?? "-"}</p>
+                <p className="text-xs text-slate-500">{request.email}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={reviewingId === request.id}
+                  onClick={() => handleApprove(request, "agente")}
+                  className="rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-60"
+                >
+                  Aprovar como agente
+                </button>
+                <button
+                  disabled={reviewingId === request.id}
+                  onClick={() => handleApprove(request, "adm")}
+                  className="rounded-md border border-brand-600 px-3 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50 disabled:opacity-60"
+                >
+                  Aprovar como admin
+                </button>
+                <button
+                  disabled={reviewingId === request.id}
+                  onClick={() => handleReject(request)}
+                  className="rounded-md px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 disabled:opacity-60"
+                >
+                  Rejeitar
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
         <table className="w-full text-sm">

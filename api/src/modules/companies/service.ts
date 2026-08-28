@@ -54,6 +54,14 @@ export async function createCompany(input: { userId: string; name: string }) {
   return company;
 }
 
+export async function searchCompanies(query: string) {
+  const pattern = `%${query.replace(/[%_\\]/g, (match) => `\\${match}`)}%`;
+  const rows = unwrap(
+    await supabaseAdmin.from("companies").select("id, name, slug").ilike("name", pattern).order("name").limit(10)
+  );
+  return rows ?? [];
+}
+
 export async function listMyCompanies(userId: string) {
   const memberships = unwrap(
     await supabaseAdmin

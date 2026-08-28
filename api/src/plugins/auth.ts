@@ -74,6 +74,19 @@ export async function getAuthContext(request: FastifyRequest): Promise<AuthConte
   return request.authContext;
 }
 
+// Para rotas que so precisam de "e um usuario Supabase Auth valido", sem
+// exigir membership em nenhuma empresa -- caso de criar/pedir acesso a uma
+// empresa (companies/service.ts, access-requests/service.ts), quando o
+// usuario ainda pode nao pertencer a nenhuma.
+export async function getAuthenticatedUserId(request: FastifyRequest) {
+  const token = getBearerToken(request);
+  const authResult = await supabaseAdmin.auth.getUser(token);
+  if (authResult.error || !authResult.data.user) {
+    throw request.server.httpErrors.unauthorized("Invalid or expired token");
+  }
+  return authResult.data.user.id;
+}
+
 export function assertRole(request: FastifyRequest, context: AuthContext, allowed: CompanyRole[]) {
   if (!allowed.includes(context.role)) {
     throw request.server.httpErrors.forbidden("Insufficient role for this operation");
