@@ -469,6 +469,22 @@ export async function getSalesMapCalendar(input: {
   };
 }
 
+// Autocomplete leve pra vincular um anuncio a uma tarefa (atividades) --
+// so identidade, nunca metricas/datas, entao nao precisa de periodo.
+export async function searchListingsForPicker(companyId: string, query: string) {
+  const pattern = `%${query.replace(/[%_\\]/g, (match) => `\\${match}`)}%`;
+  const rows = unwrap(
+    await supabaseAdmin
+      .from("listings")
+      .select("id, external_id, title")
+      .eq("company_id", companyId)
+      .or(`title.ilike.${pattern},external_id.ilike.${pattern}`)
+      .order("title")
+      .limit(10)
+  );
+  return (rows ?? []).map((row) => ({ listingId: row.id, externalId: row.external_id, title: row.title }));
+}
+
 // "Vinculados" pro drawer lateral: como catalogo/variacoes do ML nao sao
 // sincronizados (ver comentario em extractSku), usa SKU do vendedor igual
 // como proxy -- so retorna algo se o anuncio tiver SELLER_SKU preenchido.

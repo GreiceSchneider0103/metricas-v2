@@ -1,7 +1,13 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { getAuthContext } from "../../plugins/auth.js";
-import { getLinkedListings, getSalesMap, getSalesMapCalendar, type SalesMapSortField } from "./service.js";
+import {
+  getLinkedListings,
+  getSalesMap,
+  getSalesMapCalendar,
+  searchListingsForPicker,
+  type SalesMapSortField
+} from "./service.js";
 
 const booleanQueryParam = z.preprocess((value) => {
   if (typeof value !== "string") return value;
@@ -109,5 +115,13 @@ export async function salesMapRoutes(app: FastifyInstance) {
     const context = await getAuthContext(request);
     const params = listingIdParamsSchema.parse(request.params);
     return { items: await getLinkedListings(context.companyId, params.listingId) };
+  });
+
+  // Usado pelo autocomplete de "anuncio vinculado" no formulario de
+  // atividades -- so identidade (id/externalId/title), sem periodo.
+  app.get("/sales-map/lookup", async (request) => {
+    const context = await getAuthContext(request);
+    const query = z.object({ q: z.string().trim().min(2).max(120) }).parse(request.query ?? {});
+    return { items: await searchListingsForPicker(context.companyId, query.q) };
   });
 }

@@ -7,14 +7,22 @@ import { useApi, useAuth } from "@/lib/auth-context";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { Logo } from "@/components/logo";
 
-// Equipe e Integracoes viraram abas dentro de Configuracoes -- nao tem
-// mais rota propria (ver components/settings/*).
+// Equipe, Metas e Integracoes viraram abas dentro de Configuracoes -- nao
+// tem mais rota propria (ver components/settings/*).
 const NAV_ITEMS = [
   { href: "/mapa-vendas", label: "Mapa de vendas" },
   { href: "/atividades", label: "Atividades" },
-  { href: "/metas", label: "Metas" },
   { href: "/alertas", label: "Alertas" },
   { href: "/configuracoes", label: "Configuracoes" }
+];
+
+const PRECIFICACAO_URL = "https://precificacao-app.vercel.app/";
+// TODO: URL definitiva do Go Tickets ainda nao foi enviada -- placeholder ate o usuario passar o link.
+const GO_TICKETS_URL = "#";
+
+const EXTERNAL_NAV_ITEMS = [
+  { href: PRECIFICACAO_URL, label: "Precificacao" },
+  { href: GO_TICKETS_URL, label: "Go Tickets" }
 ];
 
 const PENDING_COMPANY_KEY = "metricas.pendingCompanyRequest";
@@ -177,21 +185,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
 
           <div className="flex-1">
-            {companies.length > 1 ? (
-              <select
-                value={activeCompany?.id ?? ""}
-                onChange={(e) => setActiveCompanyId(e.target.value)}
-                className="rounded-md border border-slate-300 px-2 py-1 text-sm"
-              >
-                {companies.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.name}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <span className="text-sm font-medium text-slate-700">{activeCompany?.name}</span>
-            )}
+            {/* Sempre seletor, mesmo com 1 empresa so -- um usuario pode
+                pertencer a multiplas empresas e precisa poder trocar. */}
+            <select
+              value={activeCompany?.id ?? ""}
+              onChange={(e) => setActiveCompanyId(e.target.value)}
+              className="rounded-md border border-slate-300 px-2 py-1 text-sm font-medium text-slate-700"
+            >
+              {companies.map((company) => (
+                <option key={company.id} value={company.id}>
+                  {company.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="flex items-center gap-4">
@@ -213,6 +219,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             >
               {item.label}
             </Link>
+          ))}
+          <div className="mx-1 my-1 w-px bg-slate-200" />
+          {EXTERNAL_NAV_ITEMS.map((item) => (
+            <a
+              key={item.label}
+              href={item.href}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100"
+            >
+              {item.label}
+              <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path d="M12.5 3a.75.75 0 000 1.5h2.19l-6.72 6.72a.75.75 0 101.06 1.06L15.75 5.56v2.19a.75.75 0 001.5 0v-4a.75.75 0 00-.75-.75h-4z" />
+                <path d="M4.5 5.5A1.5 1.5 0 006 4h4a.75.75 0 000-1.5H6A3 3 0 003 5.5v8A3 3 0 006 16.5h8a3 3 0 003-3v-4a.75.75 0 00-1.5 0v4a1.5 1.5 0 01-1.5 1.5H6A1.5 1.5 0 014.5 13.5v-8z" />
+              </svg>
+            </a>
           ))}
         </nav>
       </header>
