@@ -8,6 +8,21 @@ import { StatusBadge } from "@/components/status-badge";
 const STATUS_OPTIONS: Task["status"][] = ["todo", "in_progress", "waiting", "done", "cancelled"];
 const PRIORITY_OPTIONS: Task["priority"][] = ["low", "medium", "high", "critical"];
 
+const STATUS_LABELS: Record<Task["status"], string> = {
+  todo: "A fazer",
+  in_progress: "Em andamento",
+  waiting: "Aguardando",
+  done: "Concluida",
+  cancelled: "Cancelada"
+};
+
+const PRIORITY_LABELS: Record<Task["priority"], string> = {
+  low: "Baixa",
+  medium: "Media",
+  high: "Alta",
+  critical: "Critica"
+};
+
 type ListingOption = { listingId: string; externalId: string; title: string };
 
 export default function AtividadesPage() {
@@ -129,7 +144,7 @@ export default function AtividadesPage() {
             <select value={priority} onChange={(e) => setPriority(e.target.value as Task["priority"])} className="rounded-md border border-slate-300 px-2 py-1 text-sm">
               {PRIORITY_OPTIONS.map((option) => (
                 <option key={option} value={option}>
-                  {option}
+                  {PRIORITY_LABELS[option]}
                 </option>
               ))}
             </select>
@@ -226,7 +241,7 @@ export default function AtividadesPage() {
             onClick={() => setStatusFilter(option)}
             className={`rounded-full px-3 py-1 ${statusFilter === option ? "bg-brand-50 text-brand-700" : "text-slate-500"}`}
           >
-            {option}
+            {STATUS_LABELS[option]}
           </button>
         ))}
       </div>
@@ -243,8 +258,8 @@ export default function AtividadesPage() {
                 <p className="font-medium text-slate-800">{task.title}</p>
                 {task.description && <p className="mt-1 text-sm text-slate-500">{task.description}</p>}
                 <div className="mt-1 flex items-center gap-2">
-                  <StatusBadge value={task.status} />
-                  <StatusBadge value={task.priority} />
+                  <StatusBadge value={task.status} label={STATUS_LABELS[task.status]} />
+                  <StatusBadge value={task.priority} label={PRIORITY_LABELS[task.priority]} />
                   {task.dueDate && <span className="text-xs text-slate-400">Prazo: {task.dueDate}</span>}
                 </div>
               </div>
@@ -255,7 +270,7 @@ export default function AtividadesPage() {
               >
                 {STATUS_OPTIONS.map((option) => (
                   <option key={option} value={option}>
-                    {option}
+                    {STATUS_LABELS[option]}
                   </option>
                 ))}
               </select>
