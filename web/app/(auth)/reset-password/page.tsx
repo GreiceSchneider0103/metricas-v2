@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-client";
+import { PasswordInput } from "@/components/password-input";
 
 // Link de "Enviar link de redefinicao" (login) chega aqui com um token na
 // URL -- o client do Supabase (detectSessionInUrl: true por padrao) ja
@@ -92,8 +93,7 @@ export default function ResetPasswordPage() {
       <p className="text-sm text-slate-500">Defina sua nova senha.</p>
       <div>
         <label className="mb-1 block text-sm font-medium text-slate-700">Nova senha</label>
-        <input
-          type="password"
+        <PasswordInput
           required
           minLength={6}
           value={password}
@@ -103,8 +103,7 @@ export default function ResetPasswordPage() {
       </div>
       <div>
         <label className="mb-1 block text-sm font-medium text-slate-700">Confirmar nova senha</label>
-        <input
-          type="password"
+        <PasswordInput
           required
           minLength={6}
           value={confirmPassword}

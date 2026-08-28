@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-client";
 import { apiFetch } from "@/lib/api-client";
+import { PasswordInput } from "@/components/password-input";
 import type { CompanySearchResult } from "@/lib/types";
 
 const PENDING_COMPANY_KEY = "metricas.pendingCompanyRequest";
@@ -114,8 +115,7 @@ function LoginForm() {
             Esqueci minha senha
           </button>
         </div>
-        <input
-          type="password"
+        <PasswordInput
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -245,8 +245,7 @@ function SignupForm() {
       </div>
       <div>
         <label className="mb-1 block text-sm font-medium text-slate-700">Senha</label>
-        <input
-          type="password"
+        <PasswordInput
           required
           minLength={6}
           value={password}
