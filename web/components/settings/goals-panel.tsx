@@ -20,7 +20,7 @@ const METRIC_LABELS: Record<Goal["metricCode"], string> = {
   visits: "Visitas"
 };
 
-export default function MetasPage() {
+export function GoalsPanel() {
   const api = useApi();
   const { activeCompany } = useAuth();
   const canManage = activeCompany?.role === "master" || activeCompany?.role === "adm";
@@ -88,8 +88,6 @@ export default function MetasPage() {
 
   return (
     <div className="max-w-4xl space-y-6">
-      <h1 className="text-xl font-semibold text-slate-900">Metas</h1>
-
       {canManage && (
         <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4">
           <div className="min-w-[180px] flex-1">

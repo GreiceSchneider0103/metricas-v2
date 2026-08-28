@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useApi, useAuth } from "@/lib/auth-context";
+import { supabase } from "@/lib/supabase-client";
+import { PasswordInput } from "@/components/password-input";
 import { TeamPanel } from "@/components/settings/team-panel";
 import { IntegrationsPanel } from "@/components/settings/integrations-panel";
+import { GoalsPanel } from "@/components/settings/goals-panel";
 
 type CompanyDetail = { id: string; name: string; slug: string; created_at: string };
 
 const TABS = [
   { id: "geral", label: "Geral" },
   { id: "equipe", label: "Equipe" },
+  { id: "metas", label: "Metas" },
   { id: "integracoes", label: "Integracoes" }
 ] as const;
 
@@ -50,7 +54,74 @@ function GeralPanel() {
         <h2 className="mb-3 text-sm font-semibold text-slate-700">Sua conta</h2>
         <p className="text-sm text-slate-600">{session?.user.email}</p>
       </div>
+
+      <ChangePasswordCard />
     </div>
+  );
+}
+
+function ChangePasswordCard() {
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setSuccess(false);
+    if (password !== confirmPassword) {
+      setError("As senhas nao coincidem.");
+      return;
+    }
+    setSubmitting(true);
+    const { error: updateError } = await supabase.auth.updateUser({ password });
+    setSubmitting(false);
+    if (updateError) {
+      setError("Nao foi possivel atualizar a senha.");
+      return;
+    }
+    setPassword("");
+    setConfirmPassword("");
+    setSuccess(true);
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="rounded-lg border border-slate-200 bg-white p-4">
+      <h2 className="mb-3 text-sm font-semibold text-slate-700">Alterar senha</h2>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-500">Nova senha</label>
+          <PasswordInput
+            required
+            minLength={6}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-500">Confirmar senha</label>
+          <PasswordInput
+            required
+            minLength={6}
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+          />
+        </div>
+      </div>
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      {success && <p className="mt-2 text-sm text-emerald-600">Senha atualizada.</p>}
+      <button
+        type="submit"
+        disabled={submitting}
+        className="mt-3 rounded-md bg-brand-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
+      >
+        {submitting ? "Salvando..." : "Alterar senha"}
+      </button>
+    </form>
   );
 }
 
@@ -77,6 +148,7 @@ export default function ConfiguracoesPage() {
 
       {tab === "geral" && <GeralPanel />}
       {tab === "equipe" && <TeamPanel />}
+      {tab === "metas" && <GoalsPanel />}
       {tab === "integracoes" && <IntegrationsPanel />}
     </div>
   );
