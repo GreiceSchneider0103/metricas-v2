@@ -38,7 +38,7 @@ export default function MapaVendasPage() {
       .catch(() => setError("Nao foi possivel carregar o mapa de vendas."))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [from, to, search, status, sort, page]);
+  }, [from, to, search, status, sort, page, api]);
 
   const totalPages = useMemo(() => {
     if (!data) return 1;

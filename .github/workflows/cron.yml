@@ -1,0 +1,36 @@
+name: Metricas cron jobs
+
+on:
+  schedule:
+    - cron: "*/15 * * * *" # ml-sync-all -- coleta operacional (PRD: a cada 5-15min)
+    - cron: "5 3 * * *" # listing-daily-snapshot-aggregate-all -- 00:05 America/Sao_Paulo
+    - cron: "20 3 * * *" # alerts-evaluate-all -- roda depois do aggregate, 00:20 America/Sao_Paulo
+  workflow_dispatch: {}
+
+jobs:
+  ml-sync:
+    if: github.event.schedule == '*/15 * * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sincronizar contas Mercado Livre
+        run: |
+          curl -sS -f -X POST "https://metricas-v2-api.onrender.com/api/v1/cron/ml-sync-all" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" --max-time 120
+
+  aggregate:
+    if: github.event.schedule == '5 3 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Agregar snapshot diario
+        run: |
+          curl -sS -f -X POST "https://metricas-v2-api.onrender.com/api/v1/cron/listing-daily-snapshot-aggregate-all" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" --max-time 120
+
+  alerts:
+    if: github.event.schedule == '20 3 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Avaliar regras de alerta
+        run: |
+          curl -sS -f -X POST "https://metricas-v2-api.onrender.com/api/v1/cron/alerts-evaluate-all" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" --max-time 120

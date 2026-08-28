@@ -32,7 +32,7 @@ export default function EquipePage() {
   useEffect(() => {
     loadMembers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [api]);
 
   async function handleInvite(event: FormEvent) {
     event.preventDefault();

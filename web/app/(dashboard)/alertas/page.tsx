@@ -32,7 +32,7 @@ export default function AlertasPage() {
   useEffect(() => {
     loadAlerts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter]);
+  }, [statusFilter, api]);
 
   async function handleUpdateStatus(alert: Alert, status: Alert["status"]) {
     try {

@@ -33,7 +33,7 @@ export default function AtividadesPage() {
   useEffect(() => {
     loadTasks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter]);
+  }, [statusFilter, api]);
 
   async function handleCreate(event: FormEvent) {
     event.preventDefault();
