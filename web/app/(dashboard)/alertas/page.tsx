@@ -7,6 +7,26 @@ import { StatusBadge } from "@/components/status-badge";
 
 const STATUS_FILTERS = ["open", "resolved", "muted", ""] as const;
 
+const STATUS_FILTER_LABELS: Record<(typeof STATUS_FILTERS)[number], string> = {
+  open: "Aberto",
+  resolved: "Resolvido",
+  muted: "Silenciado",
+  "": "Todos"
+};
+
+const SEVERITY_LABELS: Record<Alert["severity"], string> = {
+  low: "Baixa",
+  medium: "Media",
+  high: "Alta",
+  critical: "Critica"
+};
+
+const ALERT_STATUS_LABELS: Record<Alert["status"], string> = {
+  open: "Aberto",
+  resolved: "Resolvido",
+  muted: "Silenciado"
+};
+
 export default function AlertasPage() {
   const api = useApi();
   const { activeCompany } = useAuth();
@@ -54,7 +74,7 @@ export default function AlertasPage() {
             onClick={() => setStatusFilter(option)}
             className={`rounded-full px-3 py-1 ${statusFilter === option ? "bg-brand-50 text-brand-700" : "text-slate-500"}`}
           >
-            {option === "" ? "Todos" : option}
+            {STATUS_FILTER_LABELS[option]}
           </button>
         ))}
       </div>
@@ -70,13 +90,13 @@ export default function AlertasPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <p className="font-medium text-slate-800">{alert.title}</p>
-                  <StatusBadge value={alert.severity} />
+                  <StatusBadge value={alert.severity} label={SEVERITY_LABELS[alert.severity]} />
                 </div>
                 {alert.description && <p className="mt-1 text-sm text-slate-500">{alert.description}</p>}
                 <p className="mt-1 text-xs text-slate-400">{new Date(alert.createdAt).toLocaleString("pt-BR")}</p>
               </div>
               <div className="flex items-center gap-3">
-                <StatusBadge value={alert.status} />
+                <StatusBadge value={alert.status} label={ALERT_STATUS_LABELS[alert.status]} />
                 {canManage && alert.status !== "resolved" && (
                   <button onClick={() => handleUpdateStatus(alert, "resolved")} className="text-xs font-medium text-brand-600 hover:underline">
                     Resolver
