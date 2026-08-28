@@ -57,10 +57,14 @@ export async function inviteTeamMember(input: {
 }
 
 export async function listTeamMembers(companyId: string) {
+  // company_users tem duas FKs pra users (user_id e invited_by) -- o embed
+  // "users ( ... )" sem qualificar fica ambiguo pro PostgREST (erro em
+  // runtime, sempre, nao so quando invited_by esta preenchido). Precisa
+  // apontar explicitamente a constraint do relacionamento que queremos.
   const rows = unwrap(
     await supabaseAdmin
       .from("company_users")
-      .select("id, user_id, role, is_active, created_at, users ( id, full_name, email )")
+      .select("id, user_id, role, is_active, created_at, users!company_users_user_id_fkey ( id, full_name, email )")
       .eq("company_id", companyId)
       .order("created_at", { ascending: true })
   );
