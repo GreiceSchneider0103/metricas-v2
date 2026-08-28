@@ -65,7 +65,7 @@ export default function MetasPage() {
   useEffect(() => {
     loadGoals();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [api]);
 
   async function handleCreate(event: FormEvent) {
     event.preventDefault();

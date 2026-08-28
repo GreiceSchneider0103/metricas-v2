@@ -29,7 +29,7 @@ export default function IntegracoesPage() {
     const interval = setInterval(loadStatus, 5000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [api]);
 
   async function handleConnect() {
     setConnecting(true);
