@@ -8,12 +8,75 @@ import type { CompanySearchResult } from "@/lib/types";
 
 const PENDING_COMPANY_KEY = "metricas.pendingCompanyRequest";
 
+function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`
+    });
+    setSubmitting(false);
+    if (resetError) {
+      setError("Nao foi possivel enviar o email de redefinicao. Tente novamente.");
+      return;
+    }
+    setSent(true);
+  }
+
+  if (sent) {
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-slate-600">
+          Se houver uma conta com o email <strong>{email}</strong>, enviamos um link para redefinir a senha.
+        </p>
+        <button type="button" onClick={onBack} className="text-sm font-medium text-brand-600 hover:underline">
+          Voltar para o login
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <p className="text-sm text-slate-500">Informe o email cadastrado para receber um link de redefinicao de senha.</p>
+      <div>
+        <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
+        <input
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+        />
+      </div>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      <button
+        type="submit"
+        disabled={submitting}
+        className="w-full rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
+      >
+        {submitting ? "Enviando..." : "Enviar link de redefinicao"}
+      </button>
+      <button type="button" onClick={onBack} className="w-full text-center text-xs text-slate-400 hover:underline">
+        Voltar para o login
+      </button>
+    </form>
+  );
+}
+
 function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [forgotPassword, setForgotPassword] = useState(false);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -26,6 +89,10 @@ function LoginForm() {
       return;
     }
     router.replace("/mapa-vendas");
+  }
+
+  if (forgotPassword) {
+    return <ForgotPasswordForm onBack={() => setForgotPassword(false)} />;
   }
 
   return (
@@ -41,7 +108,12 @@ function LoginForm() {
         />
       </div>
       <div>
-        <label className="mb-1 block text-sm font-medium text-slate-700">Senha</label>
+        <div className="mb-1 flex items-center justify-between">
+          <label className="block text-sm font-medium text-slate-700">Senha</label>
+          <button type="button" onClick={() => setForgotPassword(true)} className="text-xs font-medium text-brand-600 hover:underline">
+            Esqueci minha senha
+          </button>
+        </div>
         <input
           type="password"
           required
