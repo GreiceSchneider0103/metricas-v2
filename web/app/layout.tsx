@@ -3,7 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 
 export const metadata: Metadata = {
-  title: "Metricas",
+  title: "Go Metriks",
   description: "Inteligencia comercial para vendedores do Mercado Livre"
 };
 

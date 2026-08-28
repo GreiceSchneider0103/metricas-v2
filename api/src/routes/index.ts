@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { companyRoutes } from "../modules/companies/routes.js";
+import { accessRequestRoutes } from "../modules/access-requests/routes.js";
 import { mercadoLivreRoutes, mercadoLivrePublicRoutes } from "../modules/integrations/mercado-livre/routes.js";
 import { jobRoutes } from "../modules/jobs/routes.js";
 import { cronRoutes } from "../modules/jobs/cron-routes.js";
@@ -22,6 +23,7 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(
     async (protectedScope) => {
       await companyRoutes(protectedScope);
+      await accessRequestRoutes(protectedScope);
       await mercadoLivreRoutes(protectedScope);
       await jobRoutes(protectedScope);
       await salesMapRoutes(protectedScope);

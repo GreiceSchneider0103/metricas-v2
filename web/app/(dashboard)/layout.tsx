@@ -16,6 +16,88 @@ const NAV_ITEMS = [
   { href: "/configuracoes", label: "Configuracoes" }
 ];
 
+const PENDING_COMPANY_KEY = "metricas.pendingCompanyRequest";
+
+// Decide o que mostrar pra quem ainda nao pertence a nenhuma empresa: se ja
+// tem um pedido de acesso pendente, mostra a tela de espera; se veio da
+// tela de cadastro mas o pedido nao pode ser criado na hora (projeto exige
+// confirmacao de email, sem sessao ainda), cria agora que ja ha sessao; caso
+// contrario, cai no fluxo original de criar a propria empresa.
+function PendingAccessGate() {
+  const api = useApi();
+  const { signOut } = useAuth();
+  const [status, setStatus] = useState<"loading" | "pending" | "none">("loading");
+  const [companyName, setCompanyName] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function resolve() {
+      try {
+        const pendingCheck = await api<{ hasPending: boolean }>("/api/v1/access-requests/mine");
+        if (!active) return;
+        if (pendingCheck.hasPending) {
+          setStatus("pending");
+          return;
+        }
+      } catch {
+        // segue para tentar o fallback do localStorage mesmo se a checagem falhar
+      }
+
+      const stored = typeof window !== "undefined" ? window.localStorage.getItem(PENDING_COMPANY_KEY) : null;
+      if (stored) {
+        try {
+          const { id, name } = JSON.parse(stored) as { id: string; name: string };
+          await api("/api/v1/access-requests", { method: "POST", body: { companyId: id } });
+          window.localStorage.removeItem(PENDING_COMPANY_KEY);
+          if (!active) return;
+          setCompanyName(name);
+          setStatus("pending");
+          return;
+        } catch {
+          window.localStorage.removeItem(PENDING_COMPANY_KEY);
+        }
+      }
+
+      if (active) setStatus("none");
+    }
+
+    resolve();
+    return () => {
+      active = false;
+    };
+  }, [api]);
+
+  if (status === "loading") {
+    return <div className="flex h-screen items-center justify-center text-slate-400">Carregando...</div>;
+  }
+
+  if (status === "pending") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
+        <div className="w-full max-w-sm space-y-4 rounded-xl bg-white p-8 text-center shadow-sm">
+          <h1 className="text-lg font-semibold text-slate-900">Aguardando aprovacao</h1>
+          <p className="text-sm text-slate-500">
+            Seu pedido de acesso {companyName ? `a ${companyName} ` : ""}foi enviado. Um administrador precisa aprova-lo
+            antes de voce conseguir entrar.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="w-full rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+          >
+            Verificar novamente
+          </button>
+          <button type="button" onClick={() => signOut()} className="w-full text-center text-xs text-slate-400 hover:underline">
+            Sair
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return <CreateCompanyGate />;
+}
+
 function CreateCompanyGate() {
   const api = useApi();
   const { refreshCompanies, signOut } = useAuth();
@@ -41,7 +123,7 @@ function CreateCompanyGate() {
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
       <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 rounded-xl bg-white p-8 shadow-sm">
         <h1 className="text-lg font-semibold text-slate-900">Crie sua empresa</h1>
-        <p className="text-sm text-slate-500">Voce ainda nao faz parte de nenhuma empresa no Metricas.</p>
+        <p className="text-sm text-slate-500">Voce ainda nao faz parte de nenhuma empresa no Go Metriks.</p>
         <input
           required
           placeholder="Nome da empresa"
@@ -79,13 +161,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   if (companies.length === 0) {
-    return <CreateCompanyGate />;
+    return <PendingAccessGate />;
   }
 
   return (
     <div className="flex min-h-screen">
       <aside className="w-60 shrink-0 border-r border-slate-200 bg-white px-4 py-6">
-        <div className="mb-8 px-2 text-lg font-semibold text-brand-600">Metricas</div>
+        <div className="mb-8 px-2 text-lg font-semibold text-brand-600">Go Metriks</div>
         <nav className="space-y-1">
           {NAV_ITEMS.map((item) => (
             <Link

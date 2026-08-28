@@ -122,3 +122,15 @@ export type NotificationItem = {
 };
 
 export type Paginated<T> = { items: T[]; pagination: { page: number; pageSize: number; total: number } };
+
+export type CompanySearchResult = { id: string; name: string; slug: string };
+
+export type AccessRequest = {
+  id: string;
+  userId: string;
+  companyId: string;
+  status: "pending" | "approved" | "rejected";
+  fullName: string | null;
+  email: string | null;
+  createdAt: string;
+};
