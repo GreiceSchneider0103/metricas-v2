@@ -87,7 +87,7 @@ export async function createAccessRequest(input: { userId: string; companyId: st
       type: "access_request",
       title: "Novo pedido de acesso",
       body: `${requester?.full_name ?? "Alguem"} pediu acesso a ${company.name}.`,
-      link: "/equipe"
+      link: "/configuracoes"
     });
   }
 

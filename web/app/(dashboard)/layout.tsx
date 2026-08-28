@@ -5,11 +5,12 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useApi, useAuth } from "@/lib/auth-context";
 import { NotificationsBell } from "@/components/notifications-bell";
+import { Logo } from "@/components/logo";
 
+// Equipe e Integracoes viraram abas dentro de Configuracoes -- nao tem
+// mais rota propria (ver components/settings/*).
 const NAV_ITEMS = [
   { href: "/mapa-vendas", label: "Mapa de vendas" },
-  { href: "/integracoes", label: "Integracoes" },
-  { href: "/equipe", label: "Equipe" },
   { href: "/atividades", label: "Atividades" },
   { href: "/metas", label: "Metas" },
   { href: "/alertas", label: "Alertas" },
@@ -76,6 +77,7 @@ function PendingAccessGate() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
         <div className="w-full max-w-sm space-y-4 rounded-xl bg-white p-8 text-center shadow-sm">
+          <Logo className="mx-auto h-10 w-10" />
           <h1 className="text-lg font-semibold text-slate-900">Aguardando aprovacao</h1>
           <p className="text-sm text-slate-500">
             Seu pedido de acesso {companyName ? `a ${companyName} ` : ""}foi enviado. Um administrador precisa aprova-lo
@@ -122,7 +124,8 @@ function CreateCompanyGate() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
       <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 rounded-xl bg-white p-8 shadow-sm">
-        <h1 className="text-lg font-semibold text-slate-900">Crie sua empresa</h1>
+        <Logo className="mx-auto h-10 w-10" />
+        <h1 className="text-center text-lg font-semibold text-slate-900">Crie sua empresa</h1>
         <p className="text-sm text-slate-500">Voce ainda nao faz parte de nenhuma empresa no Go Metriks.</p>
         <input
           required
@@ -165,26 +168,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="w-60 shrink-0 border-r border-slate-200 bg-white px-4 py-6">
-        <div className="mb-8 px-2 text-lg font-semibold text-brand-600">Go Metriks</div>
-        <nav className="space-y-1">
-          {NAV_ITEMS.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`block rounded-md px-3 py-2 text-sm font-medium ${
-                pathname?.startsWith(item.href) ? "bg-brand-50 text-brand-700" : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-      </aside>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
-          <div>
+    <div className="flex min-h-screen flex-col bg-slate-50">
+      <header className="border-b border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between gap-4 px-6 py-3">
+          <div className="flex items-center gap-3">
+            <Logo className="h-8 w-8" />
+            <span className="hidden text-lg font-semibold text-slate-900 sm:inline">Go Metriks</span>
+          </div>
+
+          <div className="flex-1">
             {companies.length > 1 ? (
               <select
                 value={activeCompany?.id ?? ""}
@@ -201,16 +193,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <span className="text-sm font-medium text-slate-700">{activeCompany?.name}</span>
             )}
           </div>
+
           <div className="flex items-center gap-4">
             <NotificationsBell />
-            <span className="text-sm text-slate-500">{session.user.email}</span>
+            <span className="hidden text-sm text-slate-500 md:inline">{session.user.email}</span>
             <button onClick={() => signOut()} className="text-sm font-medium text-slate-500 hover:text-slate-800">
               Sair
             </button>
           </div>
-        </header>
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
-      </div>
+        </div>
+        <nav className="flex gap-1 overflow-x-auto px-4 pb-2">
+          {NAV_ITEMS.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                pathname?.startsWith(item.href) ? "bg-brand-600 text-white" : "text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+      </header>
+      <main className="flex-1 overflow-y-auto p-6">{children}</main>
     </div>
   );
 }
