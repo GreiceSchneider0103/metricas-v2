@@ -85,6 +85,23 @@ function escapePostgrestOrValue(value: string) {
   return value;
 }
 
+// Comparacao de periodo (pedido explicito: "comparação de período, análise
+// de tendência, análise de oscilação"). Periodo anterior = mesma duracao,
+// terminando no dia imediatamente antes de `from`.
+function previousPeriodRange(from: string, to: string) {
+  const fromDate = new Date(`${from}T00:00:00Z`);
+  const toDate = new Date(`${to}T00:00:00Z`);
+  const days = Math.round((toDate.getTime() - fromDate.getTime()) / 86_400_000) + 1;
+  const prevTo = new Date(fromDate.getTime() - 86_400_000);
+  const prevFrom = new Date(prevTo.getTime() - (days - 1) * 86_400_000);
+  return { from: prevFrom.toISOString().slice(0, 10), to: prevTo.toISOString().slice(0, 10) };
+}
+
+function percentChange(current: number, previous: number) {
+  if (previous === 0) return current === 0 ? 0 : null;
+  return ((current - previous) / previous) * 100;
+}
+
 // mapa de vendas: le apenas de `listings` (identidade/filtros/estado atual)
 // e `listing_daily_snapshot` (metricas do periodo, ja pre-agregadas pelo job
 // da fase 2) -- nunca de orders/order_items em tempo de request. `listings`
@@ -163,7 +180,11 @@ export async function getSalesMap(input: {
 }) {
   const listings = await fetchFilteredListings(input.companyId, input.filters);
   const listingIds = listings.map((listing) => listing.id);
-  const totals = await fetchSnapshotTotals(input.companyId, listingIds, input.from, input.to);
+  const previous = previousPeriodRange(input.from, input.to);
+  const [totals, previousTotals] = await Promise.all([
+    fetchSnapshotTotals(input.companyId, listingIds, input.from, input.to),
+    fetchSnapshotTotals(input.companyId, listingIds, previous.from, previous.to)
+  ]);
 
   const rows: SalesMapRow[] = listings.map((listing) => {
     const t = totals.get(listing.id) ?? { ordersCount: 0, unitsSold: 0, revenue: 0, visits: 0 };
@@ -217,13 +238,32 @@ export async function getSalesMap(input: {
     { revenue: 0, unitsSold: 0, ordersCount: 0, visits: 0 }
   );
 
+  const previousSummary = rows.reduce(
+    (acc, row) => {
+      const t = previousTotals.get(row.listingId) ?? { ordersCount: 0, unitsSold: 0, revenue: 0, visits: 0 };
+      acc.revenue += t.revenue;
+      acc.unitsSold += t.unitsSold;
+      acc.ordersCount += t.ordersCount;
+      acc.visits += t.visits;
+      return acc;
+    },
+    { revenue: 0, unitsSold: 0, ordersCount: 0, visits: 0 }
+  );
+
   return {
     period: { from: input.from, to: input.to },
     summary: {
       ...summary,
       avgTicket: summary.ordersCount > 0 ? summary.revenue / summary.ordersCount : null,
       conversionRate: summary.visits > 0 ? summary.ordersCount / summary.visits : null,
-      listingsCount: total
+      listingsCount: total,
+      previousPeriod: { from: previous.from, to: previous.to, ...previousSummary },
+      variance: {
+        revenuePercent: percentChange(summary.revenue, previousSummary.revenue),
+        unitsSoldPercent: percentChange(summary.unitsSold, previousSummary.unitsSold),
+        ordersCountPercent: percentChange(summary.ordersCount, previousSummary.ordersCount),
+        visitsPercent: percentChange(summary.visits, previousSummary.visits)
+      }
     },
     pagination: { page: input.page, pageSize: input.pageSize, total },
     items
@@ -511,4 +551,93 @@ export async function getLinkedListings(companyId: string, listingId: string) {
     status: row.status,
     permalink: row.permalink
   }));
+}
+
+// --- Serie temporal por anuncio (grafico no drawer) + variacao vs periodo anterior ---
+
+type SingleListingSnapshotRow = {
+  snapshot_date: string;
+  units_sold: number;
+  revenue: number;
+  orders_count: number;
+  visits: number;
+  price: number | null;
+};
+
+async function fetchSingleListingSnapshots(companyId: string, listingId: string, from: string, to: string) {
+  const rows = unwrap(
+    await supabaseAdmin
+      .from("listing_daily_snapshot")
+      .select("snapshot_date, units_sold, revenue, orders_count, visits, price")
+      .eq("company_id", companyId)
+      .eq("listing_id", listingId)
+      .gte("snapshot_date", from)
+      .lte("snapshot_date", to)
+      .order("snapshot_date")
+  );
+  return (rows ?? []) as SingleListingSnapshotRow[];
+}
+
+function buildDateRange(from: string, to: string) {
+  const dates: string[] = [];
+  let cursor = new Date(`${from}T00:00:00Z`);
+  const end = new Date(`${to}T00:00:00Z`);
+  while (cursor.getTime() <= end.getTime()) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor = new Date(cursor.getTime() + 86_400_000);
+  }
+  return dates;
+}
+
+function sumSnapshotTotals(rows: SingleListingSnapshotRow[]) {
+  return rows.reduce(
+    (acc, row) => {
+      acc.unitsSold += row.units_sold;
+      acc.revenue += row.revenue;
+      acc.ordersCount += row.orders_count;
+      acc.visits += row.visits;
+      return acc;
+    },
+    { unitsSold: 0, revenue: 0, ordersCount: 0, visits: 0 }
+  );
+}
+
+export async function getListingTimeseries(input: { companyId: string; listingId: string; from: string; to: string }) {
+  const previous = previousPeriodRange(input.from, input.to);
+
+  const [currentRows, previousRows] = await Promise.all([
+    fetchSingleListingSnapshots(input.companyId, input.listingId, input.from, input.to),
+    fetchSingleListingSnapshots(input.companyId, input.listingId, previous.from, previous.to)
+  ]);
+
+  const byDate = new Map(currentRows.map((row) => [row.snapshot_date, row]));
+  const series = buildDateRange(input.from, input.to).map((date) => {
+    const row = byDate.get(date);
+    return {
+      date,
+      unitsSold: row?.units_sold ?? 0,
+      revenue: row?.revenue ?? 0,
+      ordersCount: row?.orders_count ?? 0,
+      visits: row?.visits ?? 0,
+      price: row?.price ?? null
+    };
+  });
+
+  const totals = sumSnapshotTotals(currentRows);
+  const previousTotals = sumSnapshotTotals(previousRows);
+
+  return {
+    listingId: input.listingId,
+    period: { from: input.from, to: input.to },
+    previousPeriod: { from: previous.from, to: previous.to },
+    series,
+    totals,
+    previousTotals,
+    variance: {
+      unitsSoldPercent: percentChange(totals.unitsSold, previousTotals.unitsSold),
+      revenuePercent: percentChange(totals.revenue, previousTotals.revenue),
+      ordersCountPercent: percentChange(totals.ordersCount, previousTotals.ordersCount),
+      visitsPercent: percentChange(totals.visits, previousTotals.visits)
+    }
+  };
 }

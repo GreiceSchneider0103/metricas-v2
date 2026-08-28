@@ -5,6 +5,7 @@ import { useApi } from "@/lib/auth-context";
 import type { CalendarListing, SalesMapCalendarResponse, SalesMapResponse } from "@/lib/types";
 import { StatusBadge } from "@/components/status-badge";
 import { ListingDrawer } from "@/components/listing-drawer";
+import { VarianceBadge } from "@/components/variance-badge";
 
 function currentMonth() {
   const now = new Date();
@@ -182,13 +183,18 @@ export default function MapaVendasPage() {
 
       {summary && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-          <SummaryCard label="Receita" value={currency.format(summary.revenue)} />
-          <SummaryCard label="Unidades vendidas" value={String(summary.unitsSold)} />
-          <SummaryCard label="Pedidos" value={String(summary.ordersCount)} />
-          <SummaryCard label="Visitas" value={String(summary.visits)} />
+          <SummaryCard label="Receita" value={currency.format(summary.revenue)} variance={summary.variance.revenuePercent} />
+          <SummaryCard label="Unidades vendidas" value={String(summary.unitsSold)} variance={summary.variance.unitsSoldPercent} />
+          <SummaryCard label="Pedidos" value={String(summary.ordersCount)} variance={summary.variance.ordersCountPercent} />
+          <SummaryCard label="Visitas" value={String(summary.visits)} variance={summary.variance.visitsPercent} />
           <SummaryCard label="Conversao" value={summary.conversionRate !== null ? percent.format(summary.conversionRate) : "-"} />
           <SummaryCard label="Anuncios" value={String(summary.listingsCount)} />
         </div>
+      )}
+      {summary && (
+        <p className="text-xs text-slate-400">
+          Variacao vs periodo anterior ({summary.previousPeriod.from} a {summary.previousPeriod.to})
+        </p>
       )}
 
       <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
@@ -306,11 +312,14 @@ export default function MapaVendasPage() {
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: string }) {
+function SummaryCard({ label, value, variance }: { label: string; value: string; variance?: number | null }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4">
       <div className="text-xs font-medium uppercase text-slate-400">{label}</div>
-      <div className="mt-1 text-lg font-semibold text-slate-900">{value}</div>
+      <div className="mt-1 flex items-baseline gap-2">
+        <span className="text-lg font-semibold text-slate-900">{value}</span>
+        {variance !== undefined && <VarianceBadge percent={variance} />}
+      </div>
     </div>
   );
 }

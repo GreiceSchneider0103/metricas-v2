@@ -48,6 +48,13 @@ export type SalesMapItem = {
   conversionRate: number | null;
 };
 
+export type PeriodVariance = {
+  revenuePercent: number | null;
+  unitsSoldPercent: number | null;
+  ordersCountPercent: number | null;
+  visitsPercent: number | null;
+};
+
 export type SalesMapResponse = {
   period: { from: string; to: string };
   summary: {
@@ -58,6 +65,8 @@ export type SalesMapResponse = {
     avgTicket: number | null;
     conversionRate: number | null;
     listingsCount: number;
+    previousPeriod: { from: string; to: string; revenue: number; unitsSold: number; ordersCount: number; visits: number };
+    variance: PeriodVariance;
   };
   pagination: { page: number; pageSize: number; total: number };
   items: SalesMapItem[];
@@ -109,6 +118,25 @@ export type LinkedListing = {
   title: string;
   status: string;
   permalink: string | null;
+};
+
+export type TimeseriesPoint = {
+  date: string;
+  unitsSold: number;
+  revenue: number;
+  ordersCount: number;
+  visits: number;
+  price: number | null;
+};
+
+export type ListingTimeseriesResponse = {
+  listingId: string;
+  period: { from: string; to: string };
+  previousPeriod: { from: string; to: string };
+  series: TimeseriesPoint[];
+  totals: { unitsSold: number; revenue: number; ordersCount: number; visits: number };
+  previousTotals: { unitsSold: number; revenue: number; ordersCount: number; visits: number };
+  variance: PeriodVariance;
 };
 
 export type TeamMember = {
