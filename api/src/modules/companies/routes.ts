@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { assertPlatformAdmin, getAuthContext, getAuthenticatedUserId } from "../../plugins/auth.js";
+import { assertPlatformAdmin, assertTabAllowed, getAuthContext, getAuthenticatedUserId } from "../../plugins/auth.js";
 import { unwrap } from "../../lib/db.js";
 import { supabaseAdmin } from "../../lib/supabase.js";
 import { createCompany, listMyCompanies, searchCompanies } from "./service.js";
@@ -24,6 +24,7 @@ export async function companyRoutes(app: FastifyInstance) {
 
   app.get("/companies/current", async (request) => {
     const context = await getAuthContext(request);
+    assertTabAllowed(request, context, "configuracoes");
     return unwrap(
       await supabaseAdmin.from("companies").select("id, name, slug, created_at").eq("id", context.companyId).single()
     );

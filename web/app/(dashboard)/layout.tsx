@@ -7,14 +7,17 @@ import { useApi, useAuth } from "@/lib/auth-context";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
+import type { AppTab } from "@/lib/types";
+
+const ALL_TABS: AppTab[] = ["mapa_vendas", "atividades", "alertas", "configuracoes"];
 
 // Equipe, Metas e Integrações viraram abas dentro de Configurações -- não
 // têm mais rota própria (ver components/settings/*).
-const NAV_ITEMS = [
-  { href: "/mapa-vendas", label: "Mapa de vendas" },
-  { href: "/atividades", label: "Atividades" },
-  { href: "/alertas", label: "Alertas" },
-  { href: "/configuracoes", label: "Configurações" }
+const NAV_ITEMS: { href: string; label: string; tab: AppTab }[] = [
+  { href: "/mapa-vendas", label: "Mapa de vendas", tab: "mapa_vendas" },
+  { href: "/atividades", label: "Atividades", tab: "atividades" },
+  { href: "/alertas", label: "Alertas", tab: "alertas" },
+  { href: "/configuracoes", label: "Configurações", tab: "configuracoes" }
 ];
 
 const PRECIFICACAO_URL = "https://precificacao-app.vercel.app/";
@@ -88,13 +91,27 @@ function PendingAccessGate() {
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { loading, session, companies, activeCompany, setActiveCompanyId, signOut } = useAuth();
+  const { loading, session, companies, activeCompany, isPlatformAdmin, setActiveCompanyId, signOut } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+
+  const allowedTabs = isPlatformAdmin ? ALL_TABS : (activeCompany?.allowedTabs ?? ALL_TABS);
+  const visibleNavItems = NAV_ITEMS.filter((item) => allowedTabs.includes(item.tab));
 
   useEffect(() => {
     if (!loading && !session) router.replace("/login");
   }, [loading, session, router]);
+
+  // Se a aba atual nao estiver mais liberada (ex.: um master tirou o acesso
+  // enquanto a pessoa estava na tela), manda pra primeira aba que ainda
+  // esta liberada -- nao deixa a pessoa presa numa tela sem acesso.
+  useEffect(() => {
+    if (loading || !session || companies.length === 0) return;
+    const current = NAV_ITEMS.find((item) => pathname?.startsWith(item.href));
+    if (current && !allowedTabs.includes(current.tab) && visibleNavItems[0]) {
+      router.replace(visibleNavItems[0].href);
+    }
+  }, [loading, session, companies.length, pathname, allowedTabs, visibleNavItems, router]);
 
   if (loading || !session) {
     return <div className="flex h-screen items-center justify-center text-sm text-slate-400">Carregando…</div>;
@@ -137,7 +154,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </div>
         <nav className="flex items-center gap-1 overflow-x-auto px-4 pb-2.5">
-          {NAV_ITEMS.map((item) => (
+          {visibleNavItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}

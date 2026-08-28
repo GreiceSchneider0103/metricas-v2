@@ -2,11 +2,15 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useApi, useAuth } from "@/lib/auth-context";
-import type { AccessRequest, CompanySearchResult, TeamMember } from "@/lib/types";
+import type { AccessRequest, AppTab, CompanySearchResult, TeamMember } from "@/lib/types";
 import { StatusBadge } from "@/components/status-badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { TabCheckboxes } from "@/components/tab-checkboxes";
+import { UserDrawer } from "@/components/user-drawer";
 import { fieldInput, fieldLabel } from "@/lib/ui";
+
+const ALL_TABS: AppTab[] = ["mapa_vendas", "atividades", "alertas", "configuracoes"];
 
 function NewCompanyForm({ onCreated }: { onCreated: () => void }) {
   const api = useApi();
@@ -230,14 +234,17 @@ export function TeamPanel() {
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"adm" | "agente">("agente");
+  const [inviteTabs, setInviteTabs] = useState<AppTab[]>(ALL_TABS);
   const [inviting, setInviting] = useState(false);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
 
   async function loadMembers() {
     setLoading(true);
     try {
       const result = await api<{ items: TeamMember[] }>("/api/v1/team");
       setMembers(result.items);
+      setSelectedMember((current) => (current ? result.items.find((item) => item.userId === current.userId) ?? current : current));
       if (canSeeRequests) {
         const pending = await api<{ items: AccessRequest[] }>("/api/v1/team/access-requests");
         setRequests(pending.items);
@@ -283,8 +290,9 @@ export function TeamPanel() {
     setInviting(true);
     setError(null);
     try {
-      await api("/api/v1/team/invite", { method: "POST", body: { email, role } });
+      await api("/api/v1/team/invite", { method: "POST", body: { email, role, allowedTabs: inviteTabs } });
       setEmail("");
+      setInviteTabs(ALL_TABS);
       await loadMembers();
     } catch {
       setError("Não foi possível convidar esse usuário.");
@@ -318,6 +326,10 @@ export function TeamPanel() {
               <option value="agente">Agente</option>
               <option value="adm">Admin</option>
             </select>
+          </div>
+          <div className="w-full">
+            <label className={fieldLabel}>Abas liberadas</label>
+            <TabCheckboxes value={inviteTabs} onChange={setInviteTabs} />
           </div>
           <Button type="submit" size="sm" disabled={inviting}>
             {inviting ? "Convidando…" : "Convidar"}
@@ -368,7 +380,15 @@ export function TeamPanel() {
             {!loading &&
               members.map((member) => (
                 <tr key={member.membershipId} className="border-t border-slate-100">
-                  <td className="px-4 py-2.5">{member.fullName ?? "—"}</td>
+                  <td className="px-4 py-2.5">
+                    {canManage || isPlatformAdmin ? (
+                      <button onClick={() => setSelectedMember(member)} className="font-medium text-brand-700 hover:underline">
+                        {member.fullName ?? "—"}
+                      </button>
+                    ) : (
+                      member.fullName ?? "—"
+                    )}
+                  </td>
                   <td className="px-4 py-2.5">{member.email ?? "—"}</td>
                   <td className="px-4 py-2.5 capitalize">{member.role}</td>
                   <td className="px-4 py-2.5">
@@ -388,6 +408,16 @@ export function TeamPanel() {
           </tbody>
         </table>
       </Card>
+
+      {selectedMember && (
+        <UserDrawer
+          member={selectedMember}
+          isPlatformAdmin={isPlatformAdmin}
+          canManage={canManage}
+          onClose={() => setSelectedMember(null)}
+          onUpdated={loadMembers}
+        />
+      )}
     </div>
   );
 }

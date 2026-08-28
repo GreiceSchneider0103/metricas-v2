@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { getAuthContext } from "../../plugins/auth.js";
+import { assertTabAllowed, getAuthContext } from "../../plugins/auth.js";
 import {
   addTaskComment,
   createTask,
@@ -60,18 +60,21 @@ const commentBodySchema = z.object({ body: z.string().trim().min(1).max(5000) })
 export async function taskRoutes(app: FastifyInstance) {
   app.post("/tasks", async (request) => {
     const context = await getAuthContext(request);
+    assertTabAllowed(request, context, "atividades");
     const body = createBodySchema.parse(request.body ?? {});
     return createTask({ companyId: context.companyId, createdBy: context.userId, ...body });
   });
 
   app.get("/tasks", async (request) => {
     const context = await getAuthContext(request);
+    assertTabAllowed(request, context, "atividades");
     const { page, pageSize, ...filters } = listQuerySchema.parse(request.query ?? {});
     return listTasks(context.companyId, filters, page, pageSize);
   });
 
   app.get("/tasks/:taskId", async (request) => {
     const context = await getAuthContext(request);
+    assertTabAllowed(request, context, "atividades");
     const params = taskIdParamsSchema.parse(request.params);
     const task = await getTaskById(context.companyId, params.taskId);
     if (!task) {
@@ -82,6 +85,7 @@ export async function taskRoutes(app: FastifyInstance) {
 
   app.patch("/tasks/:taskId", async (request) => {
     const context = await getAuthContext(request);
+    assertTabAllowed(request, context, "atividades");
     const params = taskIdParamsSchema.parse(request.params);
     const body = updateBodySchema.parse(request.body ?? {});
     const existing = await getTaskById(context.companyId, params.taskId);
@@ -93,6 +97,7 @@ export async function taskRoutes(app: FastifyInstance) {
 
   app.get("/tasks/:taskId/comments", async (request) => {
     const context = await getAuthContext(request);
+    assertTabAllowed(request, context, "atividades");
     const params = taskIdParamsSchema.parse(request.params);
     const task = await getTaskById(context.companyId, params.taskId);
     if (!task) {
@@ -103,6 +108,7 @@ export async function taskRoutes(app: FastifyInstance) {
 
   app.post("/tasks/:taskId/comments", async (request) => {
     const context = await getAuthContext(request);
+    assertTabAllowed(request, context, "atividades");
     const params = taskIdParamsSchema.parse(request.params);
     const body = commentBodySchema.parse(request.body ?? {});
     const task = await getTaskById(context.companyId, params.taskId);
@@ -114,6 +120,7 @@ export async function taskRoutes(app: FastifyInstance) {
 
   app.get("/tasks/:taskId/history", async (request) => {
     const context = await getAuthContext(request);
+    assertTabAllowed(request, context, "atividades");
     const params = taskIdParamsSchema.parse(request.params);
     const task = await getTaskById(context.companyId, params.taskId);
     if (!task) {

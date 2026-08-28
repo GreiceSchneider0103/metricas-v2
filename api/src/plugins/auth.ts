@@ -1,5 +1,5 @@
 import type { FastifyRequest } from "fastify";
-import type { AuthContext, CompanyRole } from "../types.js";
+import type { AppTab, AuthContext, CompanyRole } from "../types.js";
 import { unwrap } from "../lib/db.js";
 import { supabaseAdmin } from "../lib/supabase.js";
 
@@ -50,7 +50,7 @@ export async function getAuthContext(request: FastifyRequest): Promise<AuthConte
 
   let membershipQuery = supabaseAdmin
     .from("company_users")
-    .select("company_id, role, is_active")
+    .select("company_id, role, is_active, allowed_tabs")
     .eq("user_id", userId)
     .eq("is_active", true)
     .limit(1);
@@ -71,7 +71,8 @@ export async function getAuthContext(request: FastifyRequest): Promise<AuthConte
     userId,
     companyId: membership.company_id,
     role: membership.role as CompanyRole,
-    isPlatformAdmin: userRow?.is_platform_admin ?? false
+    isPlatformAdmin: userRow?.is_platform_admin ?? false,
+    allowedTabs: (membership.allowed_tabs ?? []) as AppTab[]
   };
 
   return request.authContext;
@@ -109,5 +110,18 @@ export function assertAdmOrMaster(request: FastifyRequest, context: AuthContext)
 export function assertPlatformAdmin(request: FastifyRequest, context: AuthContext) {
   if (!context.isPlatformAdmin) {
     throw request.server.httpErrors.forbidden("Requer master de plataforma");
+  }
+}
+
+// Controle de acesso por aba (company_users.allowed_tabs), independente do
+// role. Master de plataforma sempre passa -- precisa enxergar tudo pra
+// conseguir gerenciar. Aceita mais de uma aba quando um recurso pertence a
+// mais de uma tela (ex.: metas aparecem no mapa de vendas E em
+// configuracoes) -- basta UMA das abas estar liberada.
+export function assertTabAllowed(request: FastifyRequest, context: AuthContext, tabs: AppTab | AppTab[]) {
+  if (context.isPlatformAdmin) return;
+  const required = Array.isArray(tabs) ? tabs : [tabs];
+  if (!required.some((tab) => context.allowedTabs.includes(tab))) {
+    throw request.server.httpErrors.forbidden("Voce nao tem acesso a esta aba");
   }
 }

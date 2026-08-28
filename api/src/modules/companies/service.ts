@@ -81,7 +81,7 @@ export async function listMyCompanies(userId: string) {
   const memberships = unwrap(
     await supabaseAdmin
       .from("company_users")
-      .select("role, is_active, companies ( id, name, slug )")
+      .select("role, is_active, allowed_tabs, companies ( id, name, slug )")
       .eq("user_id", userId)
       .eq("is_active", true)
   );
@@ -92,7 +92,8 @@ export async function listMyCompanies(userId: string) {
       id: company?.id,
       name: company?.name,
       slug: company?.slug,
-      role: row.role
+      role: row.role,
+      allowedTabs: row.allowed_tabs ?? []
     };
   });
 }

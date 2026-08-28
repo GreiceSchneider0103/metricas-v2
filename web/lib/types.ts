@@ -1,10 +1,20 @@
 export type CompanyRole = "master" | "adm" | "agente";
 
+export type AppTab = "mapa_vendas" | "atividades" | "alertas" | "configuracoes";
+
+export const APP_TAB_LABELS: Record<AppTab, string> = {
+  mapa_vendas: "Mapa de vendas",
+  atividades: "Atividades",
+  alertas: "Alertas",
+  configuracoes: "Configurações"
+};
+
 export type Company = {
   id: string;
   name: string;
   slug: string;
   role?: CompanyRole;
+  allowedTabs?: AppTab[];
   created_at?: string;
 };
 
@@ -146,6 +156,17 @@ export type TeamMember = {
   email: string | null;
   role: CompanyRole;
   isActive: boolean;
+  allowedTabs: AppTab[];
+  createdAt: string;
+};
+
+export type UserMembership = {
+  membershipId: string;
+  companyId: string;
+  companyName: string | null;
+  role: CompanyRole;
+  isActive: boolean;
+  allowedTabs: AppTab[];
   createdAt: string;
 };
 

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { config } from "../../../config.js";
-import { assertAdmOrMaster, getAuthContext } from "../../../plugins/auth.js";
+import { assertAdmOrMaster, assertTabAllowed, getAuthContext } from "../../../plugins/auth.js";
 import { getAuthorizationUrl, getIntegrationStatus, handleOAuthCallback } from "./service.js";
 
 function callbackHtml(status: "success" | "error", message: string) {
@@ -28,12 +28,14 @@ ${returnUrl ? `<a class="back" href="${returnUrl}">Voltar para o Metricas</a>` :
 export async function mercadoLivreRoutes(app: FastifyInstance) {
   app.get("/integrations/mercado-livre/authorize", async (request) => {
     const context = await getAuthContext(request);
+    assertTabAllowed(request, context, "configuracoes");
     assertAdmOrMaster(request, context);
     return getAuthorizationUrl(context.companyId, context.userId);
   });
 
   app.get("/integrations/mercado-livre", async (request) => {
     const context = await getAuthContext(request);
+    assertTabAllowed(request, context, "configuracoes");
     return getIntegrationStatus(context.companyId);
   });
 }

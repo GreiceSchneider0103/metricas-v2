@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { assertAdmOrMaster, getAuthContext, getAuthenticatedUserId } from "../../plugins/auth.js";
+import { assertAdmOrMaster, assertTabAllowed, getAuthContext, getAuthenticatedUserId } from "../../plugins/auth.js";
 import {
   approveAccessRequest,
   createAccessRequest,
@@ -29,12 +29,14 @@ export async function accessRequestRoutes(app: FastifyInstance) {
 
   app.get("/team/access-requests", async (request) => {
     const context = await getAuthContext(request);
+    assertTabAllowed(request, context, "configuracoes");
     assertAdmOrMaster(request, context);
     return { items: await listPendingAccessRequests({ companyId: context.companyId, allCompanies: context.isPlatformAdmin }) };
   });
 
   app.post("/team/access-requests/:requestId/approve", async (request) => {
     const context = await getAuthContext(request);
+    assertTabAllowed(request, context, "configuracoes");
     assertAdmOrMaster(request, context);
     const params = requestIdParamsSchema.parse(request.params);
     const body = z
@@ -52,6 +54,7 @@ export async function accessRequestRoutes(app: FastifyInstance) {
 
   app.post("/team/access-requests/:requestId/reject", async (request) => {
     const context = await getAuthContext(request);
+    assertTabAllowed(request, context, "configuracoes");
     assertAdmOrMaster(request, context);
     const params = requestIdParamsSchema.parse(request.params);
     return rejectAccessRequest({

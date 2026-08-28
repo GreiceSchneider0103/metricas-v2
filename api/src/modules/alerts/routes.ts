@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { assertAdmOrMaster, getAuthContext } from "../../plugins/auth.js";
+import { assertAdmOrMaster, assertTabAllowed, getAuthContext } from "../../plugins/auth.js";
 import { getAlertById, listAlerts, updateAlertStatus } from "./service.js";
 
 const alertStatusEnum = z.enum(["open", "resolved", "muted"]);
@@ -24,12 +24,14 @@ const updateBodySchema = z.object({ status: alertStatusEnum });
 export async function alertRoutes(app: FastifyInstance) {
   app.get("/alerts", async (request) => {
     const context = await getAuthContext(request);
+    assertTabAllowed(request, context, "alertas");
     const { page, pageSize, ...filters } = listQuerySchema.parse(request.query ?? {});
     return listAlerts(context.companyId, filters, page, pageSize);
   });
 
   app.get("/alerts/:alertId", async (request) => {
     const context = await getAuthContext(request);
+    assertTabAllowed(request, context, "alertas");
     const params = alertIdParamsSchema.parse(request.params);
     const alert = await getAlertById(context.companyId, params.alertId);
     if (!alert) throw request.server.httpErrors.notFound("Alerta nao encontrado");
@@ -38,6 +40,7 @@ export async function alertRoutes(app: FastifyInstance) {
 
   app.patch("/alerts/:alertId", async (request) => {
     const context = await getAuthContext(request);
+    assertTabAllowed(request, context, "alertas");
     assertAdmOrMaster(request, context);
     const params = alertIdParamsSchema.parse(request.params);
     const body = updateBodySchema.parse(request.body ?? {});
