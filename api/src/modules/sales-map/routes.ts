@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { getAuthContext } from "../../plugins/auth.js";
+import { assertTabAllowed, getAuthContext } from "../../plugins/auth.js";
 import {
   getLinkedListings,
   getListingTimeseries,
@@ -63,6 +63,7 @@ export async function salesMapRoutes(app: FastifyInstance) {
   // service.ts) -- nunca recalcula de orders/order_items na request.
   app.get("/sales-map", async (request) => {
     const context = await getAuthContext(request);
+    assertTabAllowed(request, context, "mapa_vendas");
     const query = querySchema.parse(request.query ?? {});
     const sortField = query.sort as SalesMapSortField;
     const sortDir = query.sortDir ?? (sortField === "title" ? "asc" : "desc");
@@ -92,6 +93,7 @@ export async function salesMapRoutes(app: FastifyInstance) {
   // diaria (goals com metric_code=units_sold, ver service.ts) e tendencia.
   app.get("/sales-map/calendar", async (request) => {
     const context = await getAuthContext(request);
+    assertTabAllowed(request, context, "mapa_vendas");
     const query = calendarQuerySchema.parse(request.query ?? {});
     const sortField = query.sort as SalesMapSortField;
     const sortDir = query.sortDir ?? (sortField === "title" ? "asc" : "desc");
@@ -118,6 +120,7 @@ export async function salesMapRoutes(app: FastifyInstance) {
 
   app.get("/sales-map/:listingId/linked", async (request) => {
     const context = await getAuthContext(request);
+    assertTabAllowed(request, context, "mapa_vendas");
     const params = listingIdParamsSchema.parse(request.params);
     return { items: await getLinkedListings(context.companyId, params.listingId) };
   });
@@ -126,15 +129,18 @@ export async function salesMapRoutes(app: FastifyInstance) {
   // periodo imediatamente anterior de mesma duracao (ver service.ts).
   app.get("/sales-map/:listingId/timeseries", async (request) => {
     const context = await getAuthContext(request);
+    assertTabAllowed(request, context, "mapa_vendas");
     const params = listingIdParamsSchema.parse(request.params);
     const query = timeseriesQuerySchema.parse(request.query ?? {});
     return getListingTimeseries({ companyId: context.companyId, listingId: params.listingId, from: query.from, to: query.to });
   });
 
   // Usado pelo autocomplete de "anuncio vinculado" no formulario de
-  // atividades -- so identidade (id/externalId/title), sem periodo.
+  // atividades -- so identidade (id/externalId/title), sem periodo. Liberado
+  // pra quem tem mapa_vendas OU atividades (e chamado a partir de la).
   app.get("/sales-map/lookup", async (request) => {
     const context = await getAuthContext(request);
+    assertTabAllowed(request, context, ["mapa_vendas", "atividades"]);
     const query = z.object({ q: z.string().trim().min(2).max(120) }).parse(request.query ?? {});
     return { items: await searchListingsForPicker(context.companyId, query.q) };
   });

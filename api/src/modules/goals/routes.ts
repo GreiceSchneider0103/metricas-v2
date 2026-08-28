@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { assertAdmOrMaster, getAuthContext } from "../../plugins/auth.js";
+import { assertAdmOrMaster, assertTabAllowed, getAuthContext } from "../../plugins/auth.js";
 import { createGoal, getGoalById, getGoalProgress, listGoals, updateGoal } from "./service.js";
 
 const metricCodeEnum = z.enum(["revenue", "units_sold", "orders_count", "visits"]);
@@ -50,6 +50,7 @@ const goalIdParamsSchema = z.object({ goalId: z.string().uuid() });
 export async function goalRoutes(app: FastifyInstance) {
   app.post("/goals", async (request) => {
     const context = await getAuthContext(request);
+    assertTabAllowed(request, context, ["mapa_vendas", "configuracoes"]);
     assertAdmOrMaster(request, context);
     const body = createBodySchema.parse(request.body ?? {});
     return createGoal({ companyId: context.companyId, createdBy: context.userId, ...body });
@@ -57,12 +58,14 @@ export async function goalRoutes(app: FastifyInstance) {
 
   app.get("/goals", async (request) => {
     const context = await getAuthContext(request);
+    assertTabAllowed(request, context, ["mapa_vendas", "configuracoes"]);
     const { page, pageSize, ...filters } = listQuerySchema.parse(request.query ?? {});
     return listGoals(context.companyId, filters, page, pageSize);
   });
 
   app.get("/goals/:goalId", async (request) => {
     const context = await getAuthContext(request);
+    assertTabAllowed(request, context, ["mapa_vendas", "configuracoes"]);
     const params = goalIdParamsSchema.parse(request.params);
     const goal = await getGoalById(context.companyId, params.goalId);
     if (!goal) throw request.server.httpErrors.notFound("Meta nao encontrada");
@@ -71,6 +74,7 @@ export async function goalRoutes(app: FastifyInstance) {
 
   app.get("/goals/:goalId/progress", async (request) => {
     const context = await getAuthContext(request);
+    assertTabAllowed(request, context, ["mapa_vendas", "configuracoes"]);
     const params = goalIdParamsSchema.parse(request.params);
     const progress = await getGoalProgress(context.companyId, params.goalId);
     if (!progress) throw request.server.httpErrors.notFound("Meta nao encontrada");
@@ -79,6 +83,7 @@ export async function goalRoutes(app: FastifyInstance) {
 
   app.patch("/goals/:goalId", async (request) => {
     const context = await getAuthContext(request);
+    assertTabAllowed(request, context, ["mapa_vendas", "configuracoes"]);
     assertAdmOrMaster(request, context);
     const params = goalIdParamsSchema.parse(request.params);
     const body = updateBodySchema.parse(request.body ?? {});
