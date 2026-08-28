@@ -1,5 +1,7 @@
 import { unwrap } from "../../lib/db.js";
 import { supabaseAdmin } from "../../lib/supabase.js";
+import { assertListingBelongsToCompany, assertUserBelongsToCompany } from "../../lib/tenant-guards.js";
+import { createNotification } from "../notifications/service.js";
 
 export type TaskStatus = "todo" | "in_progress" | "waiting" | "done" | "cancelled";
 export type TaskPriority = "low" | "medium" | "high" | "critical";
@@ -47,35 +49,6 @@ function mapTask(row: TaskRow) {
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
-}
-
-// assigned_to/related_listing_id apontam pra tabelas globais (users,
-// listings) -- a FK do Postgres garante que o id existe, mas nao que
-// pertence a ESTA empresa. Sem checar isso aqui, seria possivel atribuir
-// uma tarefa a um usuario de outra empresa ou vincula-la a um anuncio de
-// outra empresa.
-async function assertUserBelongsToCompany(companyId: string, userId: string) {
-  const membership = unwrap(
-    await supabaseAdmin
-      .from("company_users")
-      .select("id")
-      .eq("company_id", companyId)
-      .eq("user_id", userId)
-      .eq("is_active", true)
-      .maybeSingle()
-  );
-  if (!membership) {
-    throw new Error("Usuario atribuido nao pertence a esta empresa");
-  }
-}
-
-async function assertListingBelongsToCompany(companyId: string, listingId: string) {
-  const listing = unwrap(
-    await supabaseAdmin.from("listings").select("id").eq("company_id", companyId).eq("id", listingId).maybeSingle()
-  );
-  if (!listing) {
-    throw new Error("Anuncio relacionado nao pertence a esta empresa");
-  }
 }
 
 async function recordTaskHistory(input: {
@@ -134,6 +107,16 @@ export async function createTask(input: {
     action: "created",
     payload: { title: task.title, status: task.status, priority: task.priority, assignedTo: task.assigned_to }
   });
+
+  if (task.assigned_to) {
+    await createNotification({
+      companyId: input.companyId,
+      userId: task.assigned_to,
+      type: "task_assigned",
+      title: `Nova tarefa atribuida: ${task.title}`,
+      metadata: { taskId: task.id }
+    });
+  }
 
   return mapTask(task);
 }
@@ -246,6 +229,16 @@ export async function updateTask(input: {
     action: "updated",
     payload: diff
   });
+
+  if (diff.assignedTo && diff.assignedTo.to) {
+    await createNotification({
+      companyId: input.companyId,
+      userId: diff.assignedTo.to as string,
+      type: "task_assigned",
+      title: `Tarefa atribuida a voce: ${updated.title}`,
+      metadata: { taskId: input.taskId }
+    });
+  }
 
   return mapTask(updated);
 }
