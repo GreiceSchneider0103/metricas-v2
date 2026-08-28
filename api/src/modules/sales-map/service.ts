@@ -420,10 +420,18 @@ export async function getSalesMapCalendar(input: {
       days,
       totals: { unitsSold: unitsTotal, revenue: revenueTotal, ordersCount: ordersTotal, visits: visitsTotal },
       avgTicket: ordersTotal > 0 ? revenueTotal / ordersTotal : null,
+      avgDailyUnits,
       conversionRate: visitsTotal > 0 ? ordersTotal / visitsTotal : null,
       daysOfStock: avgDailyUnits > 0 ? (listing.available_quantity ?? 0) / avgDailyUnits : null,
       trend,
-      goal: goal ? { id: goal.id, monthlyTargetUnits: goal.targetValue, dailyTargetUnits: goal.dailyTarget } : null
+      goal: goal
+        ? {
+            id: goal.id,
+            monthlyTargetUnits: goal.targetValue,
+            dailyTargetUnits: goal.dailyTarget,
+            progressPercent: goal.targetValue > 0 ? Math.min(999, (unitsTotal / goal.targetValue) * 100) : null
+          }
+        : null
     };
   });
 

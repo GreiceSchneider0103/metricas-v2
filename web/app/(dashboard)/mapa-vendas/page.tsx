@@ -203,6 +203,10 @@ export default function MapaVendasPage() {
                   {day}
                 </th>
               ))}
+              <th className="px-2 py-2 text-right">Vendas</th>
+              <th className="px-2 py-2 text-right">Media</th>
+              <th className="px-2 py-2 text-right">Meta</th>
+              <th className="px-2 py-2 text-right">%</th>
               <th className="px-2 py-2 text-right">Pedidos</th>
               <th className="px-2 py-2 text-right">Visitas</th>
               <th className="px-2 py-2 text-right">Receita</th>
@@ -215,14 +219,14 @@ export default function MapaVendasPage() {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={dayNumbers.length + 9} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={dayNumbers.length + 13} className="px-4 py-6 text-center text-slate-400">
                   Carregando...
                 </td>
               </tr>
             )}
             {!loading && data?.items.length === 0 && (
               <tr>
-                <td colSpan={dayNumbers.length + 9} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={dayNumbers.length + 13} className="px-4 py-6 text-center text-slate-400">
                   Nenhum anuncio encontrado.
                 </td>
               </tr>
@@ -246,6 +250,18 @@ export default function MapaVendasPage() {
                   {item.days.map((day) => (
                     <DayCell key={day.date} day={day} />
                   ))}
+                  <td className="px-2 py-2 text-right">{item.totals.unitsSold}</td>
+                  <td className="px-2 py-2 text-right">{item.avgDailyUnits.toFixed(1)}</td>
+                  <td className="px-2 py-2 text-right">{item.goal ? item.goal.monthlyTargetUnits : "-"}</td>
+                  <td className="px-2 py-2 text-right">
+                    {item.goal?.progressPercent !== null && item.goal?.progressPercent !== undefined ? (
+                      <span className={item.goal.progressPercent >= 100 ? "font-medium text-emerald-600" : "text-slate-600"}>
+                        {item.goal.progressPercent.toFixed(0)}%
+                      </span>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
                   <td className="px-2 py-2 text-right">{item.totals.ordersCount}</td>
                   <td className="px-2 py-2 text-right">{item.totals.visits}</td>
                   <td className="px-2 py-2 text-right">{currency.format(item.totals.revenue)}</td>
