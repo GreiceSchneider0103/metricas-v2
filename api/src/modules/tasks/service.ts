@@ -219,7 +219,13 @@ export async function updateTask(input: {
   }
 
   const updated = unwrap(
-    await supabaseAdmin.from("tasks").update(updates).eq("id", input.taskId).select(TASK_COLUMNS).single()
+    await supabaseAdmin
+      .from("tasks")
+      .update(updates)
+      .eq("company_id", input.companyId)
+      .eq("id", input.taskId)
+      .select(TASK_COLUMNS)
+      .single()
   ) as TaskRow;
 
   await recordTaskHistory({

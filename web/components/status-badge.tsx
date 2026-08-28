@@ -23,7 +23,7 @@ const COLOR_MAP: Record<string, string> = {
   critical: "bg-red-50 text-red-700"
 };
 
-export function StatusBadge({ value }: { value: string }) {
+export function StatusBadge({ value, label }: { value: string; label?: string }) {
   const classes = COLOR_MAP[value] ?? "bg-slate-100 text-slate-600";
-  return <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${classes}`}>{value}</span>;
+  return <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${classes}`}>{label ?? value}</span>;
 }
