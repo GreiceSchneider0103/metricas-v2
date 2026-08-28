@@ -6,6 +6,9 @@ import { useApi } from "@/lib/auth-context";
 import type { CalendarListing, LinkedListing, ListingTimeseriesResponse } from "@/lib/types";
 import { StatusBadge } from "@/components/status-badge";
 import { VarianceBadge } from "@/components/variance-badge";
+import { Button } from "@/components/ui/button";
+import { fieldInput } from "@/lib/ui";
+import { LISTING_STATUS_LABELS } from "@/lib/labels";
 
 function lastDayOfMonth(month: string) {
   const [year, monthNumber] = month.split("-").map(Number);
@@ -99,7 +102,7 @@ export function ListingDrawer({
     setGoalError(null);
     const value = Number(targetValue);
     if (!Number.isFinite(value) || value <= 0) {
-      setGoalError("Informe uma meta mensal valida.");
+      setGoalError("Informe uma meta mensal válida.");
       return;
     }
     setSavingGoal(true);
@@ -121,7 +124,7 @@ export function ListingDrawer({
       }
       onGoalSaved();
     } catch {
-      setGoalError("Nao foi possivel salvar a meta.");
+      setGoalError("Não foi possível salvar a meta.");
     } finally {
       setSavingGoal(false);
     }
@@ -136,65 +139,68 @@ export function ListingDrawer({
       setTaskTitle("");
       setTaskCreated(true);
     } catch {
-      // silencioso -- botao permanece disponivel pra tentar de novo
+      // silencioso -- botão permanece disponível pra tentar de novo
     } finally {
       setCreatingTask(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end bg-black/30" onClick={onClose}>
-      <div className="h-full w-full max-w-md overflow-y-auto bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-40 flex justify-end bg-slate-900/40 backdrop-blur-[1px]" onClick={onClose}>
+      <div
+        className="animate-drawer-in h-full w-full max-w-md overflow-y-auto bg-white p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="mb-4 flex items-start justify-between gap-2">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">{listing.title}</h2>
             <p className="text-xs text-slate-400">{listing.externalId}</p>
             {listing.sku && <p className="text-xs text-slate-400">SKU: {listing.sku}</p>}
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700">
+          <button onClick={onClose} className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700">
             ✕
           </button>
         </div>
 
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          <StatusBadge value={listing.status} />
+          <StatusBadge value={listing.status} label={LISTING_STATUS_LABELS[listing.status]} />
           {listing.abcCurve && <StatusBadge value={`Curva ${listing.abcCurve}`} />}
           {listing.permalink && (
             <a href={listing.permalink} target="_blank" rel="noreferrer" className="text-xs font-medium text-brand-600 hover:underline">
-              Ver anuncio
+              Ver anúncio
             </a>
           )}
         </div>
 
         <div className="mb-6 grid grid-cols-2 gap-3 text-sm">
-          <div className="rounded-md border border-slate-200 p-3">
-            <div className="text-xs uppercase text-slate-400">Pedidos</div>
+          <div className="rounded-lg border border-slate-200 p-3">
+            <div className="text-xs uppercase tracking-wide text-slate-400">Pedidos</div>
             <div className="font-semibold text-slate-800">{listing.totals.ordersCount}</div>
           </div>
-          <div className="rounded-md border border-slate-200 p-3">
-            <div className="text-xs uppercase text-slate-400">Unidades</div>
+          <div className="rounded-lg border border-slate-200 p-3">
+            <div className="text-xs uppercase tracking-wide text-slate-400">Unidades</div>
             <div className="font-semibold text-slate-800">{listing.totals.unitsSold}</div>
           </div>
-          <div className="rounded-md border border-slate-200 p-3">
-            <div className="text-xs uppercase text-slate-400">Estoque</div>
+          <div className="rounded-lg border border-slate-200 p-3">
+            <div className="text-xs uppercase tracking-wide text-slate-400">Estoque</div>
             <div className="font-semibold text-slate-800">{listing.currentStock}</div>
           </div>
-          <div className="rounded-md border border-slate-200 p-3">
-            <div className="text-xs uppercase text-slate-400">Dias de estoque</div>
-            <div className="font-semibold text-slate-800">{listing.daysOfStock !== null ? listing.daysOfStock.toFixed(1) : "-"}</div>
+          <div className="rounded-lg border border-slate-200 p-3">
+            <div className="text-xs uppercase tracking-wide text-slate-400">Dias de estoque</div>
+            <div className="font-semibold text-slate-800">{listing.daysOfStock !== null ? listing.daysOfStock.toFixed(1) : "—"}</div>
           </div>
         </div>
 
-        <div className="mb-6 rounded-md border border-slate-200 p-4">
+        <div className="mb-6 rounded-lg border border-slate-200 p-4">
           <div className="mb-2 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-700">Evolucao de vendas</h3>
+            <h3 className="text-sm font-semibold text-slate-700">Evolução de vendas</h3>
             <div className="flex gap-1">
               {RANGE_OPTIONS.map((option) => (
                 <button
                   key={option.days}
                   type="button"
                   onClick={() => setRangeDays(option.days)}
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium transition-colors ${
                     rangeDays === option.days ? "bg-brand-600 text-white" : "text-slate-500 hover:bg-slate-100"
                   }`}
                 >
@@ -204,7 +210,7 @@ export function ListingDrawer({
             </div>
           </div>
 
-          {loadingTimeseries && <p className="text-xs text-slate-400">Carregando...</p>}
+          {loadingTimeseries && <p className="text-xs text-slate-400">Carregando…</p>}
 
           {!loadingTimeseries && timeseries && (
             <>
@@ -252,16 +258,16 @@ export function ListingDrawer({
                 </div>
               </div>
               <p className="mt-2 text-[11px] text-slate-400">
-                Vs. periodo anterior ({timeseries.previousPeriod.from} a {timeseries.previousPeriod.to})
+                Vs. período anterior ({timeseries.previousPeriod.from} a {timeseries.previousPeriod.to})
               </p>
             </>
           )}
         </div>
 
-        <form onSubmit={handleSaveGoal} className="mb-6 space-y-2 rounded-md border border-slate-200 p-4">
+        <form onSubmit={handleSaveGoal} className="mb-6 space-y-2 rounded-lg border border-slate-200 p-4">
           <h3 className="text-sm font-semibold text-slate-700">Meta mensal (unidades)</h3>
           <p className="text-xs text-slate-400">
-            Distribuida igualmente pelos dias do mes -- meta diaria atual:{" "}
+            Distribuída igualmente pelos dias do mês — meta diária atual:{" "}
             {listing.goal ? listing.goal.dailyTargetUnits.toFixed(1) : "nenhuma"}
           </p>
           <input
@@ -270,58 +276,50 @@ export function ListingDrawer({
             step="1"
             value={targetValue}
             onChange={(e) => setTargetValue(e.target.value)}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            className={fieldInput}
           />
           {goalError && <p className="text-xs text-red-600">{goalError}</p>}
-          <button
-            type="submit"
-            disabled={savingGoal}
-            className="w-full rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
-          >
-            {savingGoal ? "Salvando..." : listing.goal ? "Atualizar meta" : "Definir meta"}
-          </button>
+          <Button type="submit" size="sm" disabled={savingGoal} className="w-full">
+            {savingGoal ? "Salvando…" : listing.goal ? "Atualizar meta" : "Definir meta"}
+          </Button>
         </form>
 
         <div className="mb-6">
-          <h3 className="mb-2 text-sm font-semibold text-slate-700">Anuncios vinculados (mesmo SKU)</h3>
-          {loadingLinked && <p className="text-xs text-slate-400">Carregando...</p>}
+          <h3 className="mb-2 text-sm font-semibold text-slate-700">Anúncios vinculados (mesmo SKU)</h3>
+          {loadingLinked && <p className="text-xs text-slate-400">Carregando…</p>}
           {!loadingLinked && linked.length === 0 && (
-            <p className="text-xs text-slate-400">
-              Nenhum vinculo encontrado. Grupos de catalogo/variacoes do Mercado Livre ainda nao sao sincronizados -- so
-              anuncios com o mesmo SKU cadastrado aparecem aqui.
+            <p className="text-xs leading-relaxed text-slate-400">
+              Nenhum vínculo encontrado. Grupos de catálogo/variações do Mercado Livre ainda não são sincronizados — só
+              anúncios com o mesmo SKU cadastrado aparecem aqui.
             </p>
           )}
           {!loadingLinked && linked.length > 0 && (
             <ul className="space-y-1">
               {linked.map((item) => (
-                <li key={item.listingId} className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2 text-sm">
+                <li key={item.listingId} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm">
                   <span className="truncate">{item.title}</span>
-                  <StatusBadge value={item.status} />
+                  <StatusBadge value={item.status} label={LISTING_STATUS_LABELS[item.status]} />
                 </li>
               ))}
             </ul>
           )}
         </div>
 
-        <form onSubmit={handleCreateTask} className="space-y-2 rounded-md border border-slate-200 p-4">
-          <h3 className="text-sm font-semibold text-slate-700">Nova tarefa para este anuncio</h3>
+        <form onSubmit={handleCreateTask} className="space-y-2 rounded-lg border border-slate-200 p-4">
+          <h3 className="text-sm font-semibold text-slate-700">Nova tarefa para este anúncio</h3>
           {taskCreated && <p className="text-xs text-emerald-600">Tarefa criada.</p>}
           <input
-            placeholder="Titulo da tarefa"
+            placeholder="Título da tarefa"
             value={taskTitle}
             onChange={(e) => {
               setTaskTitle(e.target.value);
               setTaskCreated(false);
             }}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            className={fieldInput}
           />
-          <button
-            type="submit"
-            disabled={creatingTask || !taskTitle.trim()}
-            className="w-full rounded-md border border-brand-600 px-3 py-1.5 text-sm font-medium text-brand-600 hover:bg-brand-50 disabled:opacity-60"
-          >
-            {creatingTask ? "Criando..." : "Criar tarefa"}
-          </button>
+          <Button type="submit" variant="secondary" size="sm" disabled={creatingTask || !taskTitle.trim()} className="w-full">
+            {creatingTask ? "Criando…" : "Criar tarefa"}
+          </Button>
         </form>
       </div>
     </div>

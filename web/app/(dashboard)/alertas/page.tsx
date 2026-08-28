@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { useApi, useAuth } from "@/lib/auth-context";
 import type { Alert } from "@/lib/types";
 import { StatusBadge } from "@/components/status-badge";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const STATUS_FILTERS = ["open", "resolved", "muted", ""] as const;
 
@@ -16,9 +19,9 @@ const STATUS_FILTER_LABELS: Record<(typeof STATUS_FILTERS)[number], string> = {
 
 const SEVERITY_LABELS: Record<Alert["severity"], string> = {
   low: "Baixa",
-  medium: "Media",
+  medium: "Média",
   high: "Alta",
-  critical: "Critica"
+  critical: "Crítica"
 };
 
 const ALERT_STATUS_LABELS: Record<Alert["status"], string> = {
@@ -43,7 +46,7 @@ export default function AlertasPage() {
       const result = await api<{ items: Alert[] }>("/api/v1/alerts", { query: { status: statusFilter || undefined } });
       setAlerts(result.items);
     } catch {
-      setError("Nao foi possivel carregar os alertas.");
+      setError("Não foi possível carregar os alertas.");
     } finally {
       setLoading(false);
     }
@@ -59,20 +62,22 @@ export default function AlertasPage() {
       await api(`/api/v1/alerts/${alert.id}`, { method: "PATCH", body: { status } });
       await loadAlerts();
     } catch {
-      setError("Nao foi possivel atualizar esse alerta.");
+      setError("Não foi possível atualizar esse alerta.");
     }
   }
 
   return (
     <div className="max-w-4xl space-y-6">
-      <h1 className="text-xl font-semibold text-slate-900">Alertas</h1>
+      <PageHeader title="Alertas" description="Sinais automáticos sobre os seus anúncios que precisam de atenção." />
 
-      <div className="flex items-center gap-2 text-sm">
+      <div className="flex items-center gap-1 text-sm">
         {STATUS_FILTERS.map((option) => (
           <button
             key={option || "all"}
             onClick={() => setStatusFilter(option)}
-            className={`rounded-full px-3 py-1 ${statusFilter === option ? "bg-brand-50 text-brand-700" : "text-slate-500"}`}
+            className={`rounded-full px-3 py-1.5 font-medium transition-colors ${
+              statusFilter === option ? "bg-brand-50 text-brand-700" : "text-slate-500 hover:bg-slate-100"
+            }`}
           >
             {STATUS_FILTER_LABELS[option]}
           </button>
@@ -82,11 +87,11 @@ export default function AlertasPage() {
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="space-y-2">
-        {loading && <p className="text-sm text-slate-400">Carregando...</p>}
-        {!loading && alerts.length === 0 && <p className="text-sm text-slate-400">Nenhum alerta encontrado.</p>}
+        {loading && <p className="text-sm text-slate-400">Carregando…</p>}
+        {!loading && alerts.length === 0 && <EmptyState title="Nenhum alerta encontrado" hint="Tudo certo por aqui." />}
         {!loading &&
           alerts.map((alert) => (
-            <div key={alert.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4">
+            <Card key={alert.id} className="flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
                   <p className="font-medium text-slate-800">{alert.title}</p>
@@ -113,7 +118,7 @@ export default function AlertasPage() {
                   </button>
                 )}
               </div>
-            </div>
+            </Card>
           ))}
       </div>
     </div>

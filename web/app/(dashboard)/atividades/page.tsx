@@ -4,6 +4,11 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useApi } from "@/lib/auth-context";
 import type { Task, TeamMember } from "@/lib/types";
 import { StatusBadge } from "@/components/status-badge";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { fieldInput, fieldLabel } from "@/lib/ui";
 
 const STATUS_OPTIONS: Task["status"][] = ["todo", "in_progress", "waiting", "done", "cancelled"];
 const PRIORITY_OPTIONS: Task["priority"][] = ["low", "medium", "high", "critical"];
@@ -12,15 +17,15 @@ const STATUS_LABELS: Record<Task["status"], string> = {
   todo: "A fazer",
   in_progress: "Em andamento",
   waiting: "Aguardando",
-  done: "Concluida",
+  done: "Concluída",
   cancelled: "Cancelada"
 };
 
 const PRIORITY_LABELS: Record<Task["priority"], string> = {
   low: "Baixa",
-  medium: "Media",
+  medium: "Média",
   high: "Alta",
-  critical: "Critica"
+  critical: "Crítica"
 };
 
 type ListingOption = { listingId: string; externalId: string; title: string };
@@ -50,7 +55,7 @@ export default function AtividadesPage() {
       const result = await api<{ items: Task[] }>("/api/v1/tasks", { query: { status: statusFilter || undefined } });
       setTasks(result.items);
     } catch {
-      setError("Nao foi possivel carregar as tarefas.");
+      setError("Não foi possível carregar as tarefas.");
     } finally {
       setLoading(false);
     }
@@ -114,7 +119,7 @@ export default function AtividadesPage() {
       resetForm();
       await loadTasks();
     } catch {
-      setError("Nao foi possivel criar a tarefa.");
+      setError("Não foi possível criar a tarefa.");
     } finally {
       setCreating(false);
     }
@@ -125,121 +130,119 @@ export default function AtividadesPage() {
       await api(`/api/v1/tasks/${task.id}`, { method: "PATCH", body: { status } });
       await loadTasks();
     } catch {
-      setError("Nao foi possivel atualizar essa tarefa.");
+      setError("Não foi possível atualizar essa tarefa.");
     }
   }
 
   return (
     <div className="max-w-4xl space-y-6">
-      <h1 className="text-xl font-semibold text-slate-900">Atividades</h1>
+      <PageHeader title="Atividades" description="Tarefas do time para as contas e anúncios do Mercado Livre." />
 
-      <form onSubmit={handleCreate} className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[220px] flex-1">
-            <label className="mb-1 block text-xs font-medium text-slate-500">Titulo</label>
-            <input required value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm" />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">Prioridade</label>
-            <select value={priority} onChange={(e) => setPriority(e.target.value as Task["priority"])} className="rounded-md border border-slate-300 px-2 py-1 text-sm">
-              {PRIORITY_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {PRIORITY_LABELS[option]}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button type="button" onClick={() => setShowMore((v) => !v)} className="text-xs font-medium text-brand-600 hover:underline">
-            {showMore ? "Menos opcoes" : "Mais opcoes"}
-          </button>
-        </div>
-
-        {showMore && (
-          <div className="grid grid-cols-1 gap-3 border-t border-slate-100 pt-3 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-500">Prazo</label>
-              <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm" />
+      <Card>
+        <form onSubmit={handleCreate} className="space-y-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="min-w-[220px] flex-1">
+              <label className={fieldLabel}>Título</label>
+              <input required value={title} onChange={(e) => setTitle(e.target.value)} className={fieldInput} />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-500">Responsavel</label>
-              <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm">
-                <option value="">Sem responsavel</option>
-                {members.map((member) => (
-                  <option key={member.userId} value={member.userId}>
-                    {member.fullName ?? member.email}
+              <label className={fieldLabel}>Prioridade</label>
+              <select value={priority} onChange={(e) => setPriority(e.target.value as Task["priority"])} className={fieldInput}>
+                {PRIORITY_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {PRIORITY_LABELS[option]}
                   </option>
                 ))}
               </select>
             </div>
-            <div className="sm:col-span-2">
-              <label className="mb-1 block text-xs font-medium text-slate-500">Anuncio vinculado</label>
-              {selectedListing ? (
-                <div className="flex items-center justify-between rounded-md border border-brand-300 bg-brand-50 px-2 py-1 text-sm">
-                  <span className="truncate">{selectedListing.title}</span>
-                  <button type="button" onClick={() => setSelectedListing(null)} className="text-xs text-brand-700 hover:underline">
-                    Trocar
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <input
-                    placeholder="Buscar por titulo ou MLB"
-                    value={listingQuery}
-                    onChange={(e) => setListingQuery(e.target.value)}
-                    className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
-                  />
-                  {listingResults.length > 0 && (
-                    <ul className="mt-1 max-h-32 overflow-y-auto rounded-md border border-slate-200 text-sm">
-                      {listingResults.map((listing) => (
-                        <li key={listing.listingId}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedListing(listing);
-                              setListingQuery("");
-                            }}
-                            className="block w-full px-2 py-1 text-left hover:bg-slate-50"
-                          >
-                            {listing.title} <span className="text-xs text-slate-400">({listing.externalId})</span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </>
-              )}
-            </div>
-            <div className="sm:col-span-2">
-              <label className="mb-1 block text-xs font-medium text-slate-500">Descricao</label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-                className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
-              />
-            </div>
+            <button type="button" onClick={() => setShowMore((v) => !v)} className="pb-1.5 text-xs font-medium text-brand-600 hover:underline">
+              {showMore ? "Menos opções" : "Mais opções"}
+            </button>
           </div>
-        )}
 
+          {showMore && (
+            <div className="grid grid-cols-1 gap-3 border-t border-slate-100 pt-3 sm:grid-cols-2">
+              <div>
+                <label className={fieldLabel}>Prazo</label>
+                <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={fieldInput} />
+              </div>
+              <div>
+                <label className={fieldLabel}>Responsável</label>
+                <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} className={fieldInput}>
+                  <option value="">Sem responsável</option>
+                  {members.map((member) => (
+                    <option key={member.userId} value={member.userId}>
+                      {member.fullName ?? member.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="sm:col-span-2">
+                <label className={fieldLabel}>Anúncio vinculado</label>
+                {selectedListing ? (
+                  <div className="flex items-center justify-between rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-sm">
+                    <span className="truncate text-slate-700">{selectedListing.title}</span>
+                    <button type="button" onClick={() => setSelectedListing(null)} className="text-xs font-medium text-brand-700 hover:underline">
+                      Trocar
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      placeholder="Buscar por título ou MLB"
+                      value={listingQuery}
+                      onChange={(e) => setListingQuery(e.target.value)}
+                      className={fieldInput}
+                    />
+                    {listingResults.length > 0 && (
+                      <ul className="mt-1 max-h-32 overflow-y-auto rounded-lg border border-slate-200 text-sm shadow-card">
+                        {listingResults.map((listing) => (
+                          <li key={listing.listingId}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedListing(listing);
+                                setListingQuery("");
+                              }}
+                              className="block w-full px-3 py-1.5 text-left hover:bg-slate-50"
+                            >
+                              {listing.title} <span className="text-xs text-slate-400">({listing.externalId})</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                )}
+              </div>
+              <div className="sm:col-span-2">
+                <label className={fieldLabel}>Descrição</label>
+                <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className={fieldInput} />
+              </div>
+            </div>
+          )}
+
+          <Button type="submit" size="sm" disabled={creating}>
+            {creating ? "Criando…" : "Nova tarefa"}
+          </Button>
+        </form>
+      </Card>
+
+      <div className="flex flex-wrap items-center gap-1 text-sm">
+        <span className="mr-1 text-slate-500">Filtrar:</span>
         <button
-          type="submit"
-          disabled={creating}
-          className="rounded-md bg-brand-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
+          onClick={() => setStatusFilter("")}
+          className={`rounded-full px-3 py-1.5 font-medium transition-colors ${statusFilter === "" ? "bg-brand-50 text-brand-700" : "text-slate-500 hover:bg-slate-100"}`}
         >
-          {creating ? "Criando..." : "Nova tarefa"}
-        </button>
-      </form>
-
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="text-slate-500">Filtrar:</span>
-        <button onClick={() => setStatusFilter("")} className={`rounded-full px-3 py-1 ${statusFilter === "" ? "bg-brand-50 text-brand-700" : "text-slate-500"}`}>
           Todas
         </button>
         {STATUS_OPTIONS.map((option) => (
           <button
             key={option}
             onClick={() => setStatusFilter(option)}
-            className={`rounded-full px-3 py-1 ${statusFilter === option ? "bg-brand-50 text-brand-700" : "text-slate-500"}`}
+            className={`rounded-full px-3 py-1.5 font-medium transition-colors ${
+              statusFilter === option ? "bg-brand-50 text-brand-700" : "text-slate-500 hover:bg-slate-100"
+            }`}
           >
             {STATUS_LABELS[option]}
           </button>
@@ -249,11 +252,11 @@ export default function AtividadesPage() {
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="space-y-2">
-        {loading && <p className="text-sm text-slate-400">Carregando...</p>}
-        {!loading && tasks.length === 0 && <p className="text-sm text-slate-400">Nenhuma tarefa encontrada.</p>}
+        {loading && <p className="text-sm text-slate-400">Carregando…</p>}
+        {!loading && tasks.length === 0 && <EmptyState title="Nenhuma tarefa encontrada" hint="Crie a primeira tarefa acima." />}
         {!loading &&
           tasks.map((task) => (
-            <div key={task.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4">
+            <Card key={task.id} className="flex items-center justify-between">
               <div>
                 <p className="font-medium text-slate-800">{task.title}</p>
                 {task.description && <p className="mt-1 text-sm text-slate-500">{task.description}</p>}
@@ -266,7 +269,7 @@ export default function AtividadesPage() {
               <select
                 value={task.status}
                 onChange={(e) => handleStatusChange(task, e.target.value as Task["status"])}
-                className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+                className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm"
               >
                 {STATUS_OPTIONS.map((option) => (
                   <option key={option} value={option}>
@@ -274,7 +277,7 @@ export default function AtividadesPage() {
                   </option>
                 ))}
               </select>
-            </div>
+            </Card>
           ))}
       </div>
     </div>
