@@ -217,5 +217,6 @@ export type AccessRequest = {
   status: "pending" | "approved" | "rejected";
   fullName: string | null;
   email: string | null;
+  companyName: string | null;
   createdAt: string;
 };

@@ -13,6 +13,7 @@ type AuthContextValue = {
   session: Session | null;
   companies: Company[];
   activeCompany: Company | null;
+  isPlatformAdmin: boolean;
   setActiveCompanyId: (companyId: string) => void;
   refreshCompanies: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -24,15 +25,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [activeCompanyId, setActiveCompanyIdState] = useState<string | null>(null);
 
   const loadCompanies = useCallback(async (accessToken: string) => {
     try {
-      const result = await apiFetch<{ items: Company[] }>("/api/v1/companies/mine", { accessToken });
+      const result = await apiFetch<{ items: Company[]; isPlatformAdmin: boolean }>("/api/v1/companies/mine", { accessToken });
       setCompanies(result.items);
+      setIsPlatformAdmin(result.isPlatformAdmin);
       return result.items;
     } catch {
       setCompanies([]);
+      setIsPlatformAdmin(false);
       return [];
     }
   }, []);
@@ -94,6 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     session,
     companies,
     activeCompany,
+    isPlatformAdmin,
     setActiveCompanyId,
     refreshCompanies,
     signOut

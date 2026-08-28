@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useApi, useAuth } from "@/lib/auth-context";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
-import { fieldInput } from "@/lib/ui";
 
 // Equipe, Metas e Integrações viraram abas dentro de Configurações -- não
 // têm mais rota própria (ver components/settings/*).
@@ -27,18 +26,16 @@ const EXTERNAL_NAV_ITEMS = [
   { href: GO_TICKETS_URL, label: "Go Tickets" }
 ];
 
-const PENDING_COMPANY_KEY = "metricas.pendingCompanyRequest";
-
-// Decide o que mostrar pra quem ainda não pertence a nenhuma empresa: se já
-// tem um pedido de acesso pendente, mostra a tela de espera; se veio da
-// tela de cadastro mas o pedido não pôde ser criado na hora (projeto exige
-// confirmação de e-mail, sem sessão ainda), cria agora que já há sessão; caso
-// contrário, cai no fluxo original de criar a própria empresa.
+// Decide o que mostrar pra quem ainda não pertence a nenhuma empresa: ninguém
+// cria ou escolhe empresa por conta própria -- todo cadastro cai
+// automaticamente como pendente na empresa de onboarding (ver
+// access-requests/service.ts no backend). Se por algum motivo ainda não
+// existe um pedido pendente (ex.: sessão retomada após confirmar e-mail),
+// cria um agora; só um master de plataforma pode de fato liberar o acesso.
 function PendingAccessGate() {
   const api = useApi();
   const { signOut } = useAuth();
   const [status, setStatus] = useState<"loading" | "pending" | "none">("loading");
-  const [companyName, setCompanyName] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -51,26 +48,12 @@ function PendingAccessGate() {
           setStatus("pending");
           return;
         }
+        await api("/api/v1/access-requests", { method: "POST" });
+        if (!active) return;
+        setStatus("pending");
       } catch {
-        // segue para tentar o fallback do localStorage mesmo se a checagem falhar
+        if (active) setStatus("none");
       }
-
-      const stored = typeof window !== "undefined" ? window.localStorage.getItem(PENDING_COMPANY_KEY) : null;
-      if (stored) {
-        try {
-          const { id, name } = JSON.parse(stored) as { id: string; name: string };
-          await api("/api/v1/access-requests", { method: "POST", body: { companyId: id } });
-          window.localStorage.removeItem(PENDING_COMPANY_KEY);
-          if (!active) return;
-          setCompanyName(name);
-          setStatus("pending");
-          return;
-        } catch {
-          window.localStorage.removeItem(PENDING_COMPANY_KEY);
-        }
-      }
-
-      if (active) setStatus("none");
     }
 
     resolve();
@@ -83,72 +66,23 @@ function PendingAccessGate() {
     return <div className="flex h-screen items-center justify-center text-sm text-slate-400">Carregando…</div>;
   }
 
-  if (status === "pending") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
-        <div className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-8 text-center shadow-card">
-          <Logo className="mx-auto h-10 w-10" />
-          <h1 className="text-lg font-semibold text-slate-900">Aguardando aprovação</h1>
-          <p className="text-sm leading-relaxed text-slate-500">
-            Seu pedido de acesso {companyName ? `à ${companyName} ` : ""}foi enviado. Um administrador precisa aprová-lo
-            antes de você conseguir entrar.
-          </p>
-          <Button onClick={() => window.location.reload()} className="w-full">
-            Verificar novamente
-          </Button>
-          <button type="button" onClick={() => signOut()} className="w-full text-center text-xs text-slate-400 hover:text-slate-600 hover:underline">
-            Sair
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return <CreateCompanyGate />;
-}
-
-function CreateCompanyGate() {
-  const api = useApi();
-  const { refreshCompanies, signOut } = useAuth();
-  const [name, setName] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    setSubmitting(true);
-    setError(null);
-    try {
-      await api("/api/v1/companies", { method: "POST", body: { name } });
-      await refreshCompanies();
-    } catch {
-      setError("Não foi possível criar a empresa. Tente novamente.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-8 shadow-card">
+      <div className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-8 text-center shadow-card">
         <Logo className="mx-auto h-10 w-10" />
-        <h1 className="text-center text-lg font-semibold text-slate-900">Crie sua empresa</h1>
-        <p className="text-center text-sm text-slate-500">Você ainda não faz parte de nenhuma empresa no Go Metriks.</p>
-        <input
-          required
-          placeholder="Nome da empresa"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className={fieldInput}
-        />
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <Button type="submit" disabled={submitting} className="w-full">
-          {submitting ? "Criando…" : "Criar empresa"}
+        <h1 className="text-lg font-semibold text-slate-900">Aguardando aprovação</h1>
+        <p className="text-sm leading-relaxed text-slate-500">
+          {status === "pending"
+            ? "Seu acesso foi enviado para revisão. Um administrador precisa aprová-lo antes de você conseguir entrar."
+            : "Não foi possível confirmar seu acesso agora. Tente novamente em instantes ou fale com um administrador."}
+        </p>
+        <Button onClick={() => window.location.reload()} className="w-full">
+          Verificar novamente
         </Button>
         <button type="button" onClick={() => signOut()} className="w-full text-center text-xs text-slate-400 hover:text-slate-600 hover:underline">
           Sair
         </button>
-      </form>
+      </div>
     </div>
   );
 }

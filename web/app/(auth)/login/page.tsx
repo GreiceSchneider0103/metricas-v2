@@ -7,9 +7,6 @@ import { apiFetch } from "@/lib/api-client";
 import { PasswordInput } from "@/components/password-input";
 import { Button } from "@/components/ui/button";
 import { fieldInput, fieldLabel } from "@/lib/ui";
-import type { CompanySearchResult } from "@/lib/types";
-
-const PENDING_COMPANY_KEY = "metricas.pendingCompanyRequest";
 
 function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
   const [email, setEmail] = useState("");
@@ -116,42 +113,13 @@ function SignupForm() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [companyQuery, setCompanyQuery] = useState("");
-  const [companyResults, setCompanyResults] = useState<CompanySearchResult[]>([]);
-  const [selectedCompany, setSelectedCompany] = useState<CompanySearchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [pendingConfirmation, setPendingConfirmation] = useState(false);
 
-  useEffect(() => {
-    if (selectedCompany || companyQuery.trim().length < 2) {
-      setCompanyResults([]);
-      return;
-    }
-    let active = true;
-    const timeout = setTimeout(async () => {
-      try {
-        const result = await apiFetch<{ items: CompanySearchResult[] }>("/api/v1/companies/search", {
-          query: { q: companyQuery }
-        });
-        if (active) setCompanyResults(result.items);
-      } catch {
-        if (active) setCompanyResults([]);
-      }
-    }, 300);
-    return () => {
-      active = false;
-      clearTimeout(timeout);
-    };
-  }, [companyQuery, selectedCompany]);
-
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
-    if (!selectedCompany) {
-      setError("Selecione a empresa da qual você quer participar.");
-      return;
-    }
     setSubmitting(true);
 
     const { data, error: signUpError } = await supabase.auth.signUp({
@@ -168,24 +136,18 @@ function SignupForm() {
 
     if (data.session) {
       try {
-        await apiFetch("/api/v1/access-requests", {
-          method: "POST",
-          body: { companyId: selectedCompany.id },
-          accessToken: data.session.access_token
-        });
+        await apiFetch("/api/v1/access-requests", { method: "POST", accessToken: data.session.access_token });
       } catch {
-        // segue mesmo se falhar aqui -- o portão de espera no dashboard tenta de novo usando o localStorage abaixo.
+        // segue mesmo se falhar aqui -- o portão de espera no dashboard tenta de novo no proximo login.
       }
-      window.localStorage.removeItem(PENDING_COMPANY_KEY);
       setSubmitting(false);
       router.replace("/mapa-vendas");
       return;
     }
 
     // Projeto exige confirmação de e-mail: ainda não há sessão para chamar a
-    // API. Guarda a empresa escolhida para o portão de espera do dashboard
-    // criar o pedido assim que o usuário confirmar o e-mail e fizer login.
-    window.localStorage.setItem(PENDING_COMPANY_KEY, JSON.stringify({ id: selectedCompany.id, name: selectedCompany.name }));
+    // API agora. O portão de espera do dashboard cria o pedido assim que o
+    // usuário confirmar o e-mail e fizer o primeiro login.
     setSubmitting(false);
     setPendingConfirmation(true);
   }
@@ -193,8 +155,8 @@ function SignupForm() {
   if (pendingConfirmation) {
     return (
       <p className="text-sm leading-relaxed text-slate-600">
-        Enviamos um link de confirmação para <strong>{email}</strong>. Confirme seu e-mail e depois faça login — seu pedido de
-        acesso a <strong>{selectedCompany?.name}</strong> será enviado automaticamente.
+        Enviamos um link de confirmação para <strong>{email}</strong>. Confirme seu e-mail e depois faça login — seu acesso
+        ficará pendente até um administrador aprovar.
       </p>
     );
   }
@@ -213,49 +175,10 @@ function SignupForm() {
         <label className={fieldLabel}>Senha</label>
         <PasswordInput required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} className={fieldInput} />
       </div>
-      <div>
-        <label className={fieldLabel}>Empresa</label>
-        {selectedCompany ? (
-          <div className="flex items-center justify-between rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-sm">
-            <span className="text-slate-700">{selectedCompany.name}</span>
-            <button type="button" onClick={() => setSelectedCompany(null)} className="text-xs font-medium text-brand-700 hover:underline">
-              Trocar
-            </button>
-          </div>
-        ) : (
-          <>
-            <input
-              required
-              placeholder="Buscar empresa pelo nome"
-              value={companyQuery}
-              onChange={(e) => setCompanyQuery(e.target.value)}
-              className={fieldInput}
-            />
-            {companyResults.length > 0 && (
-              <ul className="mt-1 max-h-40 overflow-y-auto rounded-lg border border-slate-200 text-sm shadow-card">
-                {companyResults.map((company) => (
-                  <li key={company.id}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedCompany(company);
-                        setCompanyQuery("");
-                      }}
-                      className="block w-full px-3 py-2 text-left text-slate-700 hover:bg-slate-50"
-                    >
-                      {company.name}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
-        )}
-        <p className="mt-1.5 text-xs text-slate-400">Seu acesso precisa ser aprovado por um administrador da empresa escolhida.</p>
-      </div>
+      <p className="text-xs text-slate-400">Seu acesso precisa ser aprovado por um administrador antes de você poder entrar.</p>
       {error && <p className="text-sm text-red-600">{error}</p>}
       <Button type="submit" disabled={submitting} className="w-full">
-        {submitting ? "Enviando…" : "Pedir acesso"}
+        {submitting ? "Enviando…" : "Criar conta"}
       </Button>
     </form>
   );

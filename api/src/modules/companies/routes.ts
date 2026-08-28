@@ -1,23 +1,25 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { getAuthContext, getAuthenticatedUserId } from "../../plugins/auth.js";
+import { assertPlatformAdmin, getAuthContext, getAuthenticatedUserId } from "../../plugins/auth.js";
 import { unwrap } from "../../lib/db.js";
 import { supabaseAdmin } from "../../lib/supabase.js";
 import { createCompany, listMyCompanies, searchCompanies } from "./service.js";
 
 export async function companyRoutes(app: FastifyInstance) {
-  // Sem auth de company (o usuario ainda nao tem uma) -- so precisa de um
-  // usuario Supabase Auth valido. E o unico jeito de "entrar" no sistema
-  // pela primeira vez.
+  // So o master de plataforma cria empresas novas -- quem se cadastra nunca
+  // cria nem escolhe empresa (cai automaticamente na empresa de onboarding,
+  // ver access-requests/service.ts).
   app.post("/companies", async (request) => {
-    const userId = await getAuthenticatedUserId(request);
+    const context = await getAuthContext(request);
+    assertPlatformAdmin(request, context);
     const body = z.object({ name: z.string().trim().min(2).max(120) }).parse(request.body ?? {});
-    return createCompany({ userId, name: body.name });
+    return createCompany({ userId: context.userId, name: body.name });
   });
 
   app.get("/companies/mine", async (request) => {
     const userId = await getAuthenticatedUserId(request);
-    return { items: await listMyCompanies(userId) };
+    const userRow = unwrap(await supabaseAdmin.from("users").select("is_platform_admin").eq("id", userId).maybeSingle());
+    return { items: await listMyCompanies(userId), isPlatformAdmin: userRow?.is_platform_admin ?? false };
   });
 
   app.get("/companies/current", async (request) => {
@@ -27,11 +29,12 @@ export async function companyRoutes(app: FastifyInstance) {
     );
   });
 
-  // Publica de proposito: usada pela tela de cadastro (login), ANTES de
-  // existir conta -- e assim que a pessoa acha a empresa a qual quer pedir
-  // acesso. Expoe so id/name/slug, nunca dados internos da empresa.
+  // So o master de plataforma usa isso hoje (seletor de empresa-destino ao
+  // aprovar um pedido de acesso). Sem "q", lista todas em ordem alfabetica.
   app.get("/companies/search", async (request) => {
-    const query = z.object({ q: z.string().trim().min(2).max(120) }).parse(request.query ?? {});
+    const context = await getAuthContext(request);
+    assertPlatformAdmin(request, context);
+    const query = z.object({ q: z.string().trim().min(1).max(120).optional() }).parse(request.query ?? {});
     return { items: await searchCompanies(query.q) };
   });
 }
