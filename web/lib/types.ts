@@ -89,10 +89,11 @@ export type CalendarListing = {
   days: CalendarDay[];
   totals: { unitsSold: number; revenue: number; ordersCount: number; visits: number };
   avgTicket: number | null;
+  avgDailyUnits: number;
   conversionRate: number | null;
   daysOfStock: number | null;
   trend: "up" | "down" | "flat";
-  goal: { id: string; monthlyTargetUnits: number; dailyTargetUnits: number } | null;
+  goal: { id: string; monthlyTargetUnits: number; dailyTargetUnits: number; progressPercent: number | null } | null;
 };
 
 export type SalesMapCalendarResponse = {
