@@ -4,6 +4,10 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useApi, useAuth } from "@/lib/auth-context";
 import type { Goal, GoalProgress } from "@/lib/types";
 import { StatusBadge } from "@/components/status-badge";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { fieldInput, fieldLabel } from "@/lib/ui";
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -18,6 +22,13 @@ const METRIC_LABELS: Record<Goal["metricCode"], string> = {
   units_sold: "Unidades vendidas",
   orders_count: "Pedidos",
   visits: "Visitas"
+};
+
+const GOAL_STATUS_LABELS: Record<Goal["status"], string> = {
+  active: "Ativa",
+  achieved: "Atingida",
+  missed: "Não atingida",
+  cancelled: "Cancelada"
 };
 
 export function GoalsPanel() {
@@ -56,7 +67,7 @@ export function GoalsPanel() {
         Object.fromEntries(progressEntries.filter((entry): entry is [string, GoalProgress] => entry !== null))
       );
     } catch {
-      setError("Nao foi possivel carregar as metas.");
+      setError("Não foi possível carregar as metas.");
     } finally {
       setLoading(false);
     }
@@ -80,7 +91,7 @@ export function GoalsPanel() {
       setTargetValue("");
       await loadGoals();
     } catch {
-      setError("Nao foi possivel criar a meta.");
+      setError("Não foi possível criar a meta.");
     } finally {
       setCreating(false);
     }
@@ -89,18 +100,14 @@ export function GoalsPanel() {
   return (
     <div className="max-w-4xl space-y-6">
       {canManage && (
-        <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4">
+        <Card as="form" onSubmit={handleCreate} className="flex flex-wrap items-end gap-3">
           <div className="min-w-[180px] flex-1">
-            <label className="mb-1 block text-xs font-medium text-slate-500">Nome</label>
-            <input required value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm" />
+            <label className={fieldLabel}>Nome</label>
+            <input required value={name} onChange={(e) => setName(e.target.value)} className={fieldInput} />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">Metrica</label>
-            <select
-              value={metricCode}
-              onChange={(e) => setMetricCode(e.target.value as Goal["metricCode"])}
-              className="rounded-md border border-slate-300 px-2 py-1 text-sm"
-            >
+            <label className={fieldLabel}>Métrica</label>
+            <select value={metricCode} onChange={(e) => setMetricCode(e.target.value as Goal["metricCode"])} className={fieldInput}>
               {Object.entries(METRIC_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -109,7 +116,7 @@ export function GoalsPanel() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">Meta</label>
+            <label className={fieldLabel}>Meta</label>
             <input
               required
               type="number"
@@ -117,58 +124,54 @@ export function GoalsPanel() {
               step="0.01"
               value={targetValue}
               onChange={(e) => setTargetValue(e.target.value)}
-              className="w-28 rounded-md border border-slate-300 px-2 py-1 text-sm"
+              className={`w-28 ${fieldInput}`}
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">Inicio</label>
-            <input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-sm" />
+            <label className={fieldLabel}>Início</label>
+            <input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} className={fieldInput} />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">Fim</label>
-            <input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-sm" />
+            <label className={fieldLabel}>Fim</label>
+            <input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} className={fieldInput} />
           </div>
-          <button
-            type="submit"
-            disabled={creating}
-            className="rounded-md bg-brand-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
-          >
-            {creating ? "Criando..." : "Nova meta"}
-          </button>
-        </form>
+          <Button type="submit" size="sm" disabled={creating}>
+            {creating ? "Criando…" : "Nova meta"}
+          </Button>
+        </Card>
       )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="space-y-3">
-        {loading && <p className="text-sm text-slate-400">Carregando...</p>}
-        {!loading && goals.length === 0 && <p className="text-sm text-slate-400">Nenhuma meta cadastrada.</p>}
+        {loading && <p className="text-sm text-slate-400">Carregando…</p>}
+        {!loading && goals.length === 0 && <EmptyState title="Nenhuma meta cadastrada" hint="Crie a primeira meta acima." />}
         {!loading &&
           goals.map((goal) => {
             const progress = progressByGoal[goal.id];
             const percent = progress?.progressPercent ?? 0;
             return (
-              <div key={goal.id} className="rounded-lg border border-slate-200 bg-white p-4">
+              <Card key={goal.id}>
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-slate-800">{goal.name}</p>
                     <p className="text-xs text-slate-400">
-                      {METRIC_LABELS[goal.metricCode]} - {goal.periodStart} a {goal.periodEnd}
+                      {METRIC_LABELS[goal.metricCode]} · {goal.periodStart} a {goal.periodEnd}
                     </p>
                   </div>
-                  <StatusBadge value={goal.status} />
+                  <StatusBadge value={goal.status} label={GOAL_STATUS_LABELS[goal.status]} />
                 </div>
                 {progress && (
                   <div className="mt-3">
                     <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                      <div className="h-full bg-brand-500" style={{ width: `${Math.min(100, percent)}%` }} />
+                      <div className="h-full rounded-full bg-brand-500 transition-all" style={{ width: `${Math.min(100, percent)}%` }} />
                     </div>
                     <p className="mt-1 text-xs text-slate-500">
                       {progress.achievedValue.toLocaleString("pt-BR")} / {progress.targetValue.toLocaleString("pt-BR")} ({percent.toFixed(0)}%)
                     </p>
                   </div>
                 )}
-              </div>
+              </Card>
             );
           })}
       </div>

@@ -7,5 +7,46 @@
 }
 
 body {
-  @apply bg-slate-50 text-slate-900;
+  @apply bg-slate-50 text-slate-900 antialiased;
+}
+
+::selection {
+  @apply bg-brand-100 text-brand-900;
+}
+
+* {
+  scrollbar-color: theme("colors.slate.300") transparent;
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-slate-300;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:focus-visible {
+  @apply outline-none ring-2 ring-brand-400 ring-offset-2 ring-offset-white;
+}
+
+@keyframes drawer-slide-in {
+  from {
+    transform: translateX(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-drawer-in {
+  animation: drawer-slide-in 180ms ease-out;
 }

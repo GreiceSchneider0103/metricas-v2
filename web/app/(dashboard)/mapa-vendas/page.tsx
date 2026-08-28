@@ -6,6 +6,11 @@ import type { CalendarListing, SalesMapCalendarResponse, SalesMapResponse } from
 import { StatusBadge } from "@/components/status-badge";
 import { ListingDrawer } from "@/components/listing-drawer";
 import { VarianceBadge } from "@/components/variance-badge";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { fieldInput, fieldLabel } from "@/lib/ui";
+import { LISTING_STATUS_LABELS } from "@/lib/labels";
 
 function currentMonth() {
   const now = new Date();
@@ -42,12 +47,12 @@ function DayCell({ day }: { day: CalendarListing["days"][number] }) {
     day.date,
     `Vendas: ${day.unitsSold}`,
     `Visitas: ${day.visits}`,
-    day.price !== null ? `Preco: ${currency.format(day.price)}` : "Preco: -"
+    day.price !== null ? `Preço: ${currency.format(day.price)}` : "Preço: —"
   ].join("\n");
 
   return (
     <td className="p-0.5 text-center align-middle" title={tooltip}>
-      <div className={`relative flex h-7 w-7 items-center justify-center rounded text-[11px] font-medium ${bg}`}>
+      <div className={`relative flex h-7 w-7 items-center justify-center rounded-md text-[11px] font-medium transition-transform hover:scale-110 ${bg}`}>
         {day.priceChange === "up" && <span className="absolute -top-1 text-[9px] text-red-600">&#9650;</span>}
         {day.priceChange === "down" && <span className="absolute -top-1 text-[9px] text-emerald-600">&#9660;</span>}
         {dayNumber}
@@ -96,7 +101,7 @@ export default function MapaVendasPage() {
       setData(calendarResult);
       setSummary(summaryResult.summary);
     } catch {
-      setError("Nao foi possivel carregar o mapa de vendas.");
+      setError("Não foi possível carregar o mapa de vendas.");
     } finally {
       setLoading(false);
     }
@@ -119,48 +124,43 @@ export default function MapaVendasPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold text-slate-900">Mapa de vendas</h1>
+      <PageHeader title="Mapa de vendas" description="Vendas, visitas e preço dia a dia por anúncio." />
 
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4">
+      <Card className="flex flex-wrap items-end gap-3">
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">Mes</label>
-          <input
-            type="month"
-            value={month}
-            onChange={(e) => resetPage(setMonth)(e.target.value)}
-            className="rounded-md border border-slate-300 px-2 py-1 text-sm"
-          />
+          <label className={fieldLabel}>Mês</label>
+          <input type="month" value={month} onChange={(e) => resetPage(setMonth)(e.target.value)} className={fieldInput} />
         </div>
         <div className="min-w-[200px] flex-1">
-          <label className="mb-1 block text-xs font-medium text-slate-500">Buscar</label>
+          <label className={fieldLabel}>Buscar</label>
           <input
-            placeholder="Titulo, MLB ou SKU"
+            placeholder="Título, MLB ou SKU"
             value={search}
             onChange={(e) => resetPage(setSearch)(e.target.value)}
-            className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+            className={fieldInput}
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">Status</label>
-          <select value={status} onChange={(e) => resetPage(setStatus)(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-sm">
+          <label className={fieldLabel}>Status</label>
+          <select value={status} onChange={(e) => resetPage(setStatus)(e.target.value)} className={fieldInput}>
             <option value="">Todos</option>
             <option value="active">Ativo</option>
             <option value="paused">Pausado</option>
             <option value="closed">Fechado</option>
-            <option value="under_review">Em revisao</option>
+            <option value="under_review">Em revisão</option>
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">Tipo</label>
-          <select value={listingType} onChange={(e) => resetPage(setListingType)(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-sm">
+          <label className={fieldLabel}>Tipo</label>
+          <select value={listingType} onChange={(e) => resetPage(setListingType)(e.target.value)} className={fieldInput}>
             <option value="">Todos</option>
-            <option value="classic">Classico</option>
+            <option value="classic">Clássico</option>
             <option value="premium">Premium</option>
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">Curva ABC</label>
-          <select value={abcCurve} onChange={(e) => resetPage(setAbcCurve)(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-sm">
+          <label className={fieldLabel}>Curva ABC</label>
+          <select value={abcCurve} onChange={(e) => resetPage(setAbcCurve)(e.target.value)} className={fieldInput}>
             <option value="">Todas</option>
             <option value="A">A</option>
             <option value="B">B</option>
@@ -168,16 +168,16 @@ export default function MapaVendasPage() {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">Ordenar por</label>
-          <select value={sort} onChange={(e) => resetPage(setSort)(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-sm">
+          <label className={fieldLabel}>Ordenar por</label>
+          <select value={sort} onChange={(e) => resetPage(setSort)(e.target.value)} className={fieldInput}>
             <option value="revenue">Receita</option>
             <option value="unitsSold">Unidades vendidas</option>
             <option value="ordersCount">Pedidos</option>
-            <option value="avgTicket">Ticket medio</option>
-            <option value="title">Titulo</option>
+            <option value="avgTicket">Ticket médio</option>
+            <option value="title">Título</option>
           </select>
         </div>
-      </div>
+      </Card>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -187,60 +187,60 @@ export default function MapaVendasPage() {
           <SummaryCard label="Unidades vendidas" value={String(summary.unitsSold)} variance={summary.variance.unitsSoldPercent} />
           <SummaryCard label="Pedidos" value={String(summary.ordersCount)} variance={summary.variance.ordersCountPercent} />
           <SummaryCard label="Visitas" value={String(summary.visits)} variance={summary.variance.visitsPercent} />
-          <SummaryCard label="Conversao" value={summary.conversionRate !== null ? percent.format(summary.conversionRate) : "-"} />
-          <SummaryCard label="Anuncios" value={String(summary.listingsCount)} />
+          <SummaryCard label="Conversão" value={summary.conversionRate !== null ? percent.format(summary.conversionRate) : "—"} />
+          <SummaryCard label="Anúncios" value={String(summary.listingsCount)} />
         </div>
       )}
       {summary && (
         <p className="text-xs text-slate-400">
-          Variacao vs periodo anterior ({summary.previousPeriod.from} a {summary.previousPeriod.to})
+          Variação vs. período anterior ({summary.previousPeriod.from} a {summary.previousPeriod.to})
         </p>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <Card className="overflow-x-auto p-0">
         <table className="text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="sticky left-0 z-10 bg-slate-50 px-4 py-2">Anuncio</th>
-              <th className="px-2 py-2">ABC</th>
-              <th className="px-2 py-2">Status</th>
+              <th className="sticky left-0 z-10 border-r border-slate-200 bg-slate-50 px-4 py-2.5 font-medium">Anúncio</th>
+              <th className="px-2 py-2.5 font-medium">ABC</th>
+              <th className="px-2 py-2.5 font-medium">Status</th>
               {dayNumbers.map((day) => (
-                <th key={day} className="px-0.5 py-2 text-center font-normal">
+                <th key={day} className="px-0.5 py-2.5 text-center font-normal">
                   {day}
                 </th>
               ))}
-              <th className="px-2 py-2 text-right">Vendas</th>
-              <th className="px-2 py-2 text-right">Media</th>
-              <th className="px-2 py-2 text-right">Meta</th>
-              <th className="px-2 py-2 text-right">%</th>
-              <th className="px-2 py-2 text-right">Pedidos</th>
-              <th className="px-2 py-2 text-right">Visitas</th>
-              <th className="px-2 py-2 text-right">Receita</th>
-              <th className="px-2 py-2 text-right">Ticket medio</th>
-              <th className="px-2 py-2 text-right">Estoque</th>
-              <th className="px-2 py-2 text-right">Dias estoque</th>
-              <th className="px-2 py-2 text-center">Tend.</th>
+              <th className="px-2 py-2.5 text-right font-medium">Vendas</th>
+              <th className="px-2 py-2.5 text-right font-medium">Média</th>
+              <th className="px-2 py-2.5 text-right font-medium">Meta</th>
+              <th className="px-2 py-2.5 text-right font-medium">%</th>
+              <th className="px-2 py-2.5 text-right font-medium">Pedidos</th>
+              <th className="px-2 py-2.5 text-right font-medium">Visitas</th>
+              <th className="px-2 py-2.5 text-right font-medium">Receita</th>
+              <th className="px-2 py-2.5 text-right font-medium">Ticket médio</th>
+              <th className="px-2 py-2.5 text-right font-medium">Estoque</th>
+              <th className="px-2 py-2.5 text-right font-medium">Dias estoque</th>
+              <th className="px-2 py-2.5 text-center font-medium">Tend.</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
                 <td colSpan={dayNumbers.length + 13} className="px-4 py-6 text-center text-slate-400">
-                  Carregando...
+                  Carregando…
                 </td>
               </tr>
             )}
             {!loading && data?.items.length === 0 && (
               <tr>
                 <td colSpan={dayNumbers.length + 13} className="px-4 py-6 text-center text-slate-400">
-                  Nenhum anuncio encontrado.
+                  Nenhum anúncio encontrado.
                 </td>
               </tr>
             )}
             {!loading &&
               data?.items.map((item) => (
-                <tr key={item.listingId} className="border-t border-slate-100 hover:bg-slate-50">
-                  <td className="sticky left-0 z-10 bg-white px-4 py-2 hover:bg-slate-50">
+                <tr key={item.listingId} className="group border-t border-slate-100 transition-colors hover:bg-slate-50">
+                  <td className="sticky left-0 z-10 border-r border-slate-200 bg-white px-4 py-2 group-hover:bg-slate-50">
                     <button onClick={() => setSelectedListing(item)} className="text-left font-medium text-brand-700 hover:underline">
                       {item.title}
                     </button>
@@ -249,50 +249,50 @@ export default function MapaVendasPage() {
                       {item.sku ? ` · SKU ${item.sku}` : ""}
                     </div>
                   </td>
-                  <td className="px-2 py-2 text-center">{item.abcCurve ?? "-"}</td>
+                  <td className="px-2 py-2 text-center">{item.abcCurve ?? "—"}</td>
                   <td className="px-2 py-2">
-                    <StatusBadge value={item.status} />
+                    <StatusBadge value={item.status} label={LISTING_STATUS_LABELS[item.status]} />
                   </td>
                   {item.days.map((day) => (
                     <DayCell key={day.date} day={day} />
                   ))}
                   <td className="px-2 py-2 text-right">{item.totals.unitsSold}</td>
                   <td className="px-2 py-2 text-right">{item.avgDailyUnits.toFixed(1)}</td>
-                  <td className="px-2 py-2 text-right">{item.goal ? item.goal.monthlyTargetUnits : "-"}</td>
+                  <td className="px-2 py-2 text-right">{item.goal ? item.goal.monthlyTargetUnits : "—"}</td>
                   <td className="px-2 py-2 text-right">
                     {item.goal?.progressPercent !== null && item.goal?.progressPercent !== undefined ? (
                       <span className={item.goal.progressPercent >= 100 ? "font-medium text-emerald-600" : "text-slate-600"}>
                         {item.goal.progressPercent.toFixed(0)}%
                       </span>
                     ) : (
-                      "-"
+                      "—"
                     )}
                   </td>
                   <td className="px-2 py-2 text-right">{item.totals.ordersCount}</td>
                   <td className="px-2 py-2 text-right">{item.totals.visits}</td>
                   <td className="px-2 py-2 text-right">{currency.format(item.totals.revenue)}</td>
-                  <td className="px-2 py-2 text-right">{item.avgTicket !== null ? currency.format(item.avgTicket) : "-"}</td>
+                  <td className="px-2 py-2 text-right">{item.avgTicket !== null ? currency.format(item.avgTicket) : "—"}</td>
                   <td className="px-2 py-2 text-right">{item.currentStock}</td>
-                  <td className="px-2 py-2 text-right">{item.daysOfStock !== null ? item.daysOfStock.toFixed(1) : "-"}</td>
+                  <td className="px-2 py-2 text-right">{item.daysOfStock !== null ? item.daysOfStock.toFixed(1) : "—"}</td>
                   <td className={`px-2 py-2 text-center font-semibold ${TREND_COLOR[item.trend]}`}>{TREND_ICON[item.trend]}</td>
                 </tr>
               ))}
           </tbody>
         </table>
-      </div>
+      </Card>
 
       {data && data.pagination.total > 0 && (
         <div className="flex items-center justify-between text-sm text-slate-500">
           <span>
-            Pagina {data.pagination.page} de {totalPages} ({data.pagination.total} anuncios)
+            Página {data.pagination.page} de {totalPages} ({data.pagination.total} anúncios)
           </span>
           <div className="flex gap-2">
-            <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="rounded-md border border-slate-300 px-3 py-1 disabled:opacity-40">
+            <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
               Anterior
-            </button>
-            <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} className="rounded-md border border-slate-300 px-3 py-1 disabled:opacity-40">
-              Proxima
-            </button>
+            </Button>
+            <Button variant="secondary" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+              Próxima
+            </Button>
           </div>
         </div>
       )}
@@ -314,12 +314,12 @@ export default function MapaVendasPage() {
 
 function SummaryCard({ label, value, variance }: { label: string; value: string; variance?: number | null }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
-      <div className="text-xs font-medium uppercase text-slate-400">{label}</div>
+    <Card>
+      <div className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</div>
       <div className="mt-1 flex items-baseline gap-2">
-        <span className="text-lg font-semibold text-slate-900">{value}</span>
+        <span className="text-lg font-semibold tracking-tight text-slate-900">{value}</span>
         {variance !== undefined && <VarianceBadge percent={variance} />}
       </div>
-    </div>
+    </Card>
   );
 }

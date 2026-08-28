@@ -13,5 +13,5 @@ export default function RootPage() {
     router.replace(session ? "/mapa-vendas" : "/login");
   }, [loading, session, router]);
 
-  return <div className="flex h-screen items-center justify-center text-slate-400">Carregando...</div>;
+  return <div className="flex h-screen items-center justify-center text-sm text-slate-400">Carregando…</div>;
 }

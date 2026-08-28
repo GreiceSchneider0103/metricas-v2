@@ -4,12 +4,14 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-client";
 import { PasswordInput } from "@/components/password-input";
+import { Button } from "@/components/ui/button";
+import { fieldInput, fieldLabel } from "@/lib/ui";
 
-// Link de "Enviar link de redefinicao" (login) chega aqui com um token na
-// URL -- o client do Supabase (detectSessionInUrl: true por padrao) ja
-// consome esse token e abre uma sessao temporaria de recuperacao sozinho,
-// sem precisarmos ler a URL na mao. So falta o form pra definir a nova
-// senha e checar se essa sessao de fato existe (link expirado/invalido cai
+// Link de "Enviar link de redefinição" (login) chega aqui com um token na
+// URL -- o client do Supabase (detectSessionInUrl: true por padrão) já
+// consome esse token e abre uma sessão temporária de recuperação sozinho,
+// sem precisarmos ler a URL na mão. Só falta o form pra definir a nova
+// senha e checar se essa sessão de fato existe (link expirado/inválido cai
 // no estado de erro).
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -46,27 +48,27 @@ export default function ResetPasswordPage() {
     event.preventDefault();
     setError(null);
     if (password !== confirmPassword) {
-      setError("As senhas nao coincidem.");
+      setError("As senhas não coincidem.");
       return;
     }
     setSubmitting(true);
     const { error: updateError } = await supabase.auth.updateUser({ password });
     setSubmitting(false);
     if (updateError) {
-      setError("Nao foi possivel atualizar a senha. Solicite um novo link.");
+      setError("Não foi possível atualizar a senha. Solicite um novo link.");
       return;
     }
     setDone(true);
   }
 
   if (ready === "checking") {
-    return <p className="text-sm text-slate-400">Verificando link...</p>;
+    return <p className="text-sm text-slate-400">Verificando link…</p>;
   }
 
   if (ready === "invalid") {
     return (
       <div className="space-y-4 text-sm text-slate-600">
-        <p>Este link de redefinicao e invalido ou expirou.</p>
+        <p>Este link de redefinição é inválido ou expirou.</p>
         <button onClick={() => router.replace("/login")} className="font-medium text-brand-600 hover:underline">
           Voltar para o login
         </button>
@@ -78,12 +80,9 @@ export default function ResetPasswordPage() {
     return (
       <div className="space-y-4">
         <p className="text-sm text-slate-600">Senha atualizada com sucesso.</p>
-        <button
-          onClick={() => router.replace("/mapa-vendas")}
-          className="w-full rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
-        >
+        <Button onClick={() => router.replace("/mapa-vendas")} className="w-full">
           Continuar
-        </button>
+        </Button>
       </div>
     );
   }
@@ -92,33 +91,23 @@ export default function ResetPasswordPage() {
     <form onSubmit={handleSubmit} className="space-y-4">
       <p className="text-sm text-slate-500">Defina sua nova senha.</p>
       <div>
-        <label className="mb-1 block text-sm font-medium text-slate-700">Nova senha</label>
-        <PasswordInput
-          required
-          minLength={6}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-        />
+        <label className={fieldLabel}>Nova senha</label>
+        <PasswordInput required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} className={fieldInput} />
       </div>
       <div>
-        <label className="mb-1 block text-sm font-medium text-slate-700">Confirmar nova senha</label>
+        <label className={fieldLabel}>Confirmar nova senha</label>
         <PasswordInput
           required
           minLength={6}
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+          className={fieldInput}
         />
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
-      <button
-        type="submit"
-        disabled={submitting}
-        className="w-full rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
-      >
-        {submitting ? "Salvando..." : "Atualizar senha"}
-      </button>
+      <Button type="submit" disabled={submitting} className="w-full">
+        {submitting ? "Salvando…" : "Atualizar senha"}
+      </Button>
     </form>
   );
 }
