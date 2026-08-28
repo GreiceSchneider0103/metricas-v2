@@ -39,6 +39,7 @@ export type SalesMapItem = {
   currentStock: number;
   hasAds: boolean;
   hasPromotion: boolean;
+  sku: string | null;
   ordersCount: number;
   unitsSold: number;
   revenue: number;
@@ -49,9 +50,64 @@ export type SalesMapItem = {
 
 export type SalesMapResponse = {
   period: { from: string; to: string };
-  summary: { revenue: number; unitsSold: number; ordersCount: number; avgTicket: number | null; listingsCount: number };
+  summary: {
+    revenue: number;
+    unitsSold: number;
+    ordersCount: number;
+    visits: number;
+    avgTicket: number | null;
+    conversionRate: number | null;
+    listingsCount: number;
+  };
   pagination: { page: number; pageSize: number; total: number };
   items: SalesMapItem[];
+};
+
+export type CalendarDay = {
+  date: string;
+  unitsSold: number;
+  revenue: number;
+  ordersCount: number;
+  visits: number;
+  price: number | null;
+  priceChange: "up" | "down" | "same" | null;
+  targetStatus: "hit" | "miss" | "none";
+};
+
+export type CalendarListing = {
+  listingId: string;
+  externalId: string;
+  title: string;
+  permalink: string | null;
+  status: string;
+  listingType: string | null;
+  abcCurve: string | null;
+  hasAds: boolean;
+  hasPromotion: boolean;
+  sku: string | null;
+  currentStock: number;
+  days: CalendarDay[];
+  totals: { unitsSold: number; revenue: number; ordersCount: number; visits: number };
+  avgTicket: number | null;
+  conversionRate: number | null;
+  daysOfStock: number | null;
+  trend: "up" | "down" | "flat";
+  goal: { id: string; monthlyTargetUnits: number; dailyTargetUnits: number } | null;
+};
+
+export type SalesMapCalendarResponse = {
+  month: string;
+  period: { from: string; to: string };
+  pagination: { page: number; pageSize: number; total: number };
+  items: CalendarListing[];
+};
+
+export type LinkedListing = {
+  listingId: string;
+  externalId: string;
+  title: string;
+  status: string;
+  permalink: string | null;
 };
 
 export type TeamMember = {
