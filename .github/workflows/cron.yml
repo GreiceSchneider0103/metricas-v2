@@ -2,14 +2,21 @@ name: Metricas cron jobs
 
 on:
   schedule:
-    - cron: "*/15 * * * *" # ml-sync-all -- coleta operacional (PRD: a cada 5-15min)
-    - cron: "5 3 * * *" # listing-daily-snapshot-aggregate-all -- 00:05 America/Sao_Paulo
-    - cron: "20 3 * * *" # alerts-evaluate-all -- roda depois do aggregate, 00:20 America/Sao_Paulo
+    - cron: "*/15 * * * *" # unica entrada -- ver nota abaixo
   workflow_dispatch: {}
 
 jobs:
+  # As 3 rotinas rodam juntas a cada disparo (a cada ~15min, sujeito ao
+  # throttling do GitHub Actions em schedules). Antes cada uma tinha seu
+  # proprio "cron:" e um "if: github.event.schedule == '<string exata>'" --
+  # na pratica, so a entrada "*/15 * * * *" chegou a disparar em 23 execucoes
+  # reais (28/08 a 31/08): as entradas diarias ("5 3 * * *", "20 3 * * *")
+  # nunca casaram e os jobs aggregate/alerts sempre vieram "skipped", entao
+  # listing_daily_snapshot nunca foi populada. aggregate e alerts sao
+  # idempotentes (aggregate sempre reprocessa o dia de "ontem" via upsert),
+  # entao rodar com mais frequencia do que o pretendido e inofensivo -- so
+  # garante que rodem de verdade.
   ml-sync:
-    if: github.event.schedule == '*/15 * * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Sincronizar contas Mercado Livre
@@ -18,7 +25,6 @@ jobs:
             -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" --max-time 120
 
   aggregate:
-    if: github.event.schedule == '5 3 * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Agregar snapshot diario
@@ -27,7 +33,7 @@ jobs:
             -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" --max-time 120
 
   alerts:
-    if: github.event.schedule == '20 3 * * *' || github.event_name == 'workflow_dispatch'
+    needs: aggregate
     runs-on: ubuntu-latest
     steps:
       - name: Avaliar regras de alerta
