@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { TaskDrawer } from "@/components/task-drawer";
 import { fieldInput, fieldLabel } from "@/lib/ui";
 
 const STATUS_OPTIONS: Task["status"][] = ["todo", "in_progress", "waiting", "done", "cancelled"];
@@ -48,6 +49,7 @@ export default function AtividadesPage() {
   const [selectedListing, setSelectedListing] = useState<ListingOption | null>(null);
   const [creating, setCreating] = useState(false);
   const [showMore, setShowMore] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   async function loadTasks() {
     setLoading(true);
@@ -131,6 +133,16 @@ export default function AtividadesPage() {
       await loadTasks();
     } catch {
       setError("Não foi possível atualizar essa tarefa.");
+    }
+  }
+
+  async function handleTaskUpdated(taskId: string) {
+    await loadTasks();
+    try {
+      const fresh = await api<Task>(`/api/v1/tasks/${taskId}`);
+      setSelectedTask(fresh);
+    } catch {
+      // segue com o que ja estava no drawer
     }
   }
 
@@ -256,20 +268,29 @@ export default function AtividadesPage() {
         {!loading && tasks.length === 0 && <EmptyState title="Nenhuma tarefa encontrada" hint="Crie a primeira tarefa acima." />}
         {!loading &&
           tasks.map((task) => (
-            <Card key={task.id} className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-slate-800">{task.title}</p>
-                {task.description && <p className="mt-1 text-sm text-slate-500">{task.description}</p>}
-                <div className="mt-1 flex items-center gap-2">
+            <Card key={task.id} className="flex items-center justify-between gap-3">
+              <button type="button" onClick={() => setSelectedTask(task)} className="min-w-0 flex-1 text-left">
+                <p className="font-medium text-slate-800 hover:underline">{task.title}</p>
+                {task.description && <p className="mt-1 truncate text-sm text-slate-500">{task.description}</p>}
+                {task.relatedListing && (
+                  <p className="mt-1 truncate text-xs text-slate-500">
+                    Anúncio: {task.relatedListing.title}{" "}
+                    <span className="text-slate-400">({task.relatedListing.externalId})</span>
+                  </p>
+                )}
+                <div className="mt-1 flex flex-wrap items-center gap-2">
                   <StatusBadge value={task.status} label={STATUS_LABELS[task.status]} />
                   <StatusBadge value={task.priority} label={PRIORITY_LABELS[task.priority]} />
                   {task.dueDate && <span className="text-xs text-slate-400">Prazo: {task.dueDate}</span>}
+                  {task.assignee && (
+                    <span className="text-xs text-slate-400">Responsável: {task.assignee.fullName ?? task.assignee.email}</span>
+                  )}
                 </div>
-              </div>
+              </button>
               <select
                 value={task.status}
                 onChange={(e) => handleStatusChange(task, e.target.value as Task["status"])}
-                className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm"
+                className="shrink-0 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm"
               >
                 {STATUS_OPTIONS.map((option) => (
                   <option key={option} value={option}>
@@ -280,6 +301,15 @@ export default function AtividadesPage() {
             </Card>
           ))}
       </div>
+
+      {selectedTask && (
+        <TaskDrawer
+          task={selectedTask}
+          members={members}
+          onClose={() => setSelectedTask(null)}
+          onUpdated={() => handleTaskUpdated(selectedTask.id)}
+        />
+      )}
     </div>
   );
 }

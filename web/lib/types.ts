@@ -171,6 +171,9 @@ export type UserMembership = {
   createdAt: string;
 };
 
+export type TaskListingRef = { id: string; externalId: string; title: string; permalink: string | null };
+export type TaskUserRef = { id: string; fullName: string | null; email: string | null };
+
 export type Task = {
   id: string;
   title: string;
@@ -181,8 +184,20 @@ export type Task = {
   assignedTo: string | null;
   createdBy: string | null;
   relatedListingId: string | null;
+  relatedListing: TaskListingRef | null;
+  assignee: TaskUserRef | null;
+  creator: TaskUserRef | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type TaskComment = {
+  id: string;
+  taskId: string;
+  authorId: string | null;
+  authorName: string | null;
+  body: string;
+  createdAt: string;
 };
 
 export type Goal = {

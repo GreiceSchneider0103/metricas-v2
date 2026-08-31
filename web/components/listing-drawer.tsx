@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useApi } from "@/lib/auth-context";
-import type { CalendarListing, LinkedListing, ListingTimeseriesResponse } from "@/lib/types";
+import type { CalendarListing, LinkedListing, ListingTimeseriesResponse, TeamMember } from "@/lib/types";
 import { StatusBadge } from "@/components/status-badge";
 import { VarianceBadge } from "@/components/variance-badge";
 import { Button } from "@/components/ui/button";
@@ -52,6 +52,8 @@ export function ListingDrawer({
   const [savingGoal, setSavingGoal] = useState(false);
   const [goalError, setGoalError] = useState<string | null>(null);
   const [taskTitle, setTaskTitle] = useState("");
+  const [taskAssignedTo, setTaskAssignedTo] = useState("");
+  const [members, setMembers] = useState<TeamMember[]>([]);
   const [creatingTask, setCreatingTask] = useState(false);
   const [taskCreated, setTaskCreated] = useState(false);
   const [rangeDays, setRangeDays] = useState(30);
@@ -99,6 +101,13 @@ export function ListingDrawer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listing.listingId, rangeDays]);
 
+  useEffect(() => {
+    api<{ items: TeamMember[] }>("/api/v1/team")
+      .then((result) => setMembers(result.items))
+      .catch(() => setMembers([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function handleSaveGoal(event: FormEvent) {
     event.preventDefault();
     setGoalError(null);
@@ -137,8 +146,12 @@ export function ListingDrawer({
     if (!taskTitle.trim()) return;
     setCreatingTask(true);
     try {
-      await api("/api/v1/tasks", { method: "POST", body: { title: taskTitle, relatedListingId: listing.listingId } });
+      await api("/api/v1/tasks", {
+        method: "POST",
+        body: { title: taskTitle, relatedListingId: listing.listingId, assignedTo: taskAssignedTo || undefined }
+      });
       setTaskTitle("");
+      setTaskAssignedTo("");
       setTaskCreated(true);
     } catch {
       // silencioso -- botão permanece disponível pra tentar de novo
@@ -331,6 +344,21 @@ export function ListingDrawer({
             }}
             className={fieldInput}
           />
+          <select
+            value={taskAssignedTo}
+            onChange={(e) => {
+              setTaskAssignedTo(e.target.value);
+              setTaskCreated(false);
+            }}
+            className={fieldInput}
+          >
+            <option value="">Sem responsável</option>
+            {members.map((member) => (
+              <option key={member.userId} value={member.userId}>
+                {member.fullName ?? member.email}
+              </option>
+            ))}
+          </select>
           <Button type="submit" variant="secondary" size="sm" disabled={creatingTask || !taskTitle.trim()} className="w-full">
             {creatingTask ? "Criando…" : "Criar tarefa"}
           </Button>
