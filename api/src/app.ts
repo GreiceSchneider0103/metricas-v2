@@ -33,6 +33,24 @@ export async function buildApp() {
   });
   await app.register(sensible);
 
+  // Fastify recusa por padrao um corpo vazio quando Content-Type e
+  // application/json (FST_ERR_CTP_EMPTY_JSON_BODY), antes mesmo do handler
+  // rodar -- isso ja derrubou POST/PATCH sem corpo (ex.: /jobs/ml-sync,
+  // /access-requests) com 400 instantaneo, sem log de auth nem de negocio.
+  // Trata corpo vazio como objeto vazio em vez de erro (padrao documentado
+  // do proprio Fastify pra esse caso).
+  app.addContentTypeParser("application/json", { parseAs: "string" }, (_request, body, done) => {
+    if (body === "" || body === undefined) {
+      done(null, {});
+      return;
+    }
+    try {
+      done(null, JSON.parse(body as string));
+    } catch (error) {
+      done(error as Error, undefined);
+    }
+  });
+
   app.setErrorHandler((rawError, _request, reply) => {
     if (rawError instanceof ZodError) {
       return reply.status(400).send({ statusCode: 400, error: "Bad Request", message: rawError.errors });
