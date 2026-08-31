@@ -18,12 +18,15 @@ type OrderItemRow = {
   listing_id: string | null;
   quantity: number;
   net_amount: number | null;
+  unit_price: number | null;
 };
 
 type ListingStats = {
   orderIds: Set<string>;
   unitsSold: number;
   revenue: number;
+  priceWeightedSum: number;
+  priceQuantity: number;
 };
 
 function monthRangeForDate(snapshotDate: string) {
@@ -119,7 +122,7 @@ async function fetchOrderItemsForOrders(companyId: string, orderIds: string[]) {
     const rows = unwrap(
       await supabaseAdmin
         .from("order_items")
-        .select("order_id, listing_id, quantity, net_amount")
+        .select("order_id, listing_id, quantity, net_amount, unit_price")
         .eq("company_id", companyId)
         .in("order_id", batch)
     );
@@ -157,10 +160,21 @@ function groupStatsByListing(orderItems: OrderItemRow[]) {
 
   for (const item of orderItems) {
     if (!item.listing_id) continue;
-    const stats = statsByListingId.get(item.listing_id) ?? { orderIds: new Set<string>(), unitsSold: 0, revenue: 0 };
+    const stats =
+      statsByListingId.get(item.listing_id) ??
+      ({ orderIds: new Set<string>(), unitsSold: 0, revenue: 0, priceWeightedSum: 0, priceQuantity: 0 } satisfies ListingStats);
     stats.orderIds.add(item.order_id);
     stats.unitsSold += item.quantity;
     stats.revenue += item.net_amount ?? 0;
+    // unit_price = preco de fato pago naquele pedido -- ao contrario de
+    // listings.price/effective_price (so o preco ATUAL, sem historico), isso
+    // e dado real do dia em questao, vindo direto do pedido. Sempre que
+    // houver venda no dia, usamos essa media (ponderada por quantidade) como
+    // o preco praticado daquele dia, em vez de depender do preco atual.
+    if (item.unit_price !== null && item.quantity > 0) {
+      stats.priceWeightedSum += item.unit_price * item.quantity;
+      stats.priceQuantity += item.quantity;
+    }
     statsByListingId.set(item.listing_id, stats);
   }
 
@@ -174,10 +188,18 @@ function groupStatsByListing(orderItems: OrderItemRow[]) {
 //
 // "visits" fica sempre 0: preenchido depois pelo job de visitas (fase 3),
 // que so atualiza a linha ja gravada aqui. "effective_price" e o preco
-// praticado de fato -- usa o preco com desconto sincronizado pela API de
-// seller-promotions (listings-sync.ts) quando ha promocao ativa, senao cai
-// pro preco cheio. E esse valor (nao "price") que o mapa de vendas e as
-// flechinhas de variacao mostram, porque e o que o comprador realmente paga.
+// praticado de fato, escolhido nesta ordem de prioridade:
+//   1. unit_price medio dos pedidos daquele dia (dado real, historico de
+//      verdade -- e o preco que o comprador realmente pagou naquele dia);
+//   2. o preco ja gravado nesse snapshot em uma agregacao anterior (evita
+//      apagar oscilacao real ao reprocessar um dia sem venda nova);
+//   3. o preco com desconto sincronizado agora pela API de seller-promotions
+//      (listings-sync.ts), ou o preco cheio na ausencia de promocao --
+//      unico caso em que usamos o preco ATUAL pra um dia do passado, porque
+//      e a unica informacao disponivel (o Mercado Livre nao expoe historico
+//      de preco pra dias sem pedido nenhum).
+// E esse valor (nao "price") que o mapa de vendas e as flechinhas de
+// variacao mostram.
 export async function aggregateListingDailySnapshotForCompany(companyId: string, snapshotDate: string) {
   return withJobRun(
     { companyId, jobName: "listing_daily_snapshot.aggregate", payload: { snapshotDate } },
@@ -206,8 +228,9 @@ export async function aggregateListingDailySnapshotForCompany(companyId: string,
         const unitsSold = stats?.unitsSold ?? 0;
         const revenue = stats?.revenue ?? 0;
         const existing = existingPrices.get(listing.id);
-        const price = existing?.price ?? listing.price ?? null;
-        const effectivePrice = existing?.effective_price ?? listing.effective_price ?? listing.price ?? null;
+        const orderDerivedPrice = stats && stats.priceQuantity > 0 ? stats.priceWeightedSum / stats.priceQuantity : null;
+        const price = orderDerivedPrice ?? existing?.price ?? listing.price ?? null;
+        const effectivePrice = orderDerivedPrice ?? existing?.effective_price ?? listing.effective_price ?? listing.price ?? null;
 
         return {
           company_id: companyId,
