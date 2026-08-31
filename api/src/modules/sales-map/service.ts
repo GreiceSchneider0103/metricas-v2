@@ -1,4 +1,4 @@
-import { chunk, unwrap } from "../../lib/db.js";
+import { chunk, fetchAllPages, unwrap } from "../../lib/db.js";
 import { supabaseAdmin } from "../../lib/supabase.js";
 
 export type SalesMapFilters = {
@@ -109,27 +109,29 @@ function percentChange(current: number, previous: number) {
 // barato; o custo que o repo antigo tinha era somar orders/order_items
 // inteiros a cada carregamento de tela, o que este endpoint nunca faz.
 async function fetchFilteredListings(companyId: string, filters: SalesMapFilters) {
-  let query = supabaseAdmin
-    .from("listings")
-    .select(
-      "id, external_id, title, category_name, status, permalink, listing_type, logistic_type, is_catalog, abc_curve, price, available_quantity, has_ads, has_promotion, attributes"
-    )
-    .eq("company_id", companyId);
+  return fetchAllPages<ListingRow>((from, to) => {
+    let query = supabaseAdmin
+      .from("listings")
+      .select(
+        "id, external_id, title, category_name, status, permalink, listing_type, logistic_type, is_catalog, abc_curve, price, available_quantity, has_ads, has_promotion, attributes"
+      )
+      .eq("company_id", companyId);
 
-  if (filters.search) {
-    const escapedForIlike = filters.search.replace(/[%_\\]/g, (match) => `\\${match}`);
-    const pattern = escapePostgrestOrValue(`%${escapedForIlike}%`);
-    query = query.or(`title.ilike.${pattern},external_id.ilike.${pattern},attributes->>SELLER_SKU.ilike.${pattern}`);
-  }
-  if (filters.status) query = query.eq("status", filters.status);
-  if (filters.listingType) query = query.eq("listing_type", filters.listingType);
-  if (filters.logisticType) query = query.eq("logistic_type", filters.logisticType);
-  if (filters.isCatalog !== undefined) query = query.eq("is_catalog", filters.isCatalog);
-  if (filters.abcCurve) query = query.eq("abc_curve", filters.abcCurve);
-  if (filters.hasAds !== undefined) query = query.eq("has_ads", filters.hasAds);
-  if (filters.hasPromotion !== undefined) query = query.eq("has_promotion", filters.hasPromotion);
+    if (filters.search) {
+      const escapedForIlike = filters.search.replace(/[%_\\]/g, (match) => `\\${match}`);
+      const pattern = escapePostgrestOrValue(`%${escapedForIlike}%`);
+      query = query.or(`title.ilike.${pattern},external_id.ilike.${pattern},attributes->>SELLER_SKU.ilike.${pattern}`);
+    }
+    if (filters.status) query = query.eq("status", filters.status);
+    if (filters.listingType) query = query.eq("listing_type", filters.listingType);
+    if (filters.logisticType) query = query.eq("logistic_type", filters.logisticType);
+    if (filters.isCatalog !== undefined) query = query.eq("is_catalog", filters.isCatalog);
+    if (filters.abcCurve) query = query.eq("abc_curve", filters.abcCurve);
+    if (filters.hasAds !== undefined) query = query.eq("has_ads", filters.hasAds);
+    if (filters.hasPromotion !== undefined) query = query.eq("has_promotion", filters.hasPromotion);
 
-  return (unwrap(await query) ?? []) as ListingRow[];
+    return query.range(from, to);
+  });
 }
 
 async function fetchSnapshotTotals(companyId: string, listingIds: string[], from: string, to: string) {
@@ -137,15 +139,20 @@ async function fetchSnapshotTotals(companyId: string, listingIds: string[], from
   if (listingIds.length === 0) return totals;
 
   for (const batch of chunk(listingIds, 200)) {
-    const rows = (unwrap(
-      await supabaseAdmin
+    // fetchAllPages (nao um select() simples) -- listings x dias do periodo
+    // facilmente passa das 1000 linhas que o Supabase devolve por padrao
+    // sem paginacao explicita, e isso truncava silenciosamente o mapa de
+    // vendas pros primeiros dias do mes (sem erro nenhum, so dado faltando).
+    const rows = await fetchAllPages<SnapshotRow>((rangeFrom, rangeTo) =>
+      supabaseAdmin
         .from("listing_daily_snapshot")
         .select("listing_id, orders_count, units_sold, revenue, visits")
         .eq("company_id", companyId)
         .in("listing_id", batch)
         .gte("snapshot_date", from)
         .lte("snapshot_date", to)
-    ) ?? []) as SnapshotRow[];
+        .range(rangeFrom, rangeTo)
+    );
 
     for (const row of rows) {
       const current = totals.get(row.listing_id) ?? { ordersCount: 0, unitsSold: 0, revenue: 0, visits: 0 };
@@ -309,15 +316,18 @@ async function fetchCalendarSnapshots(companyId: string, listingIds: string[], f
   if (listingIds.length === 0) return rows;
 
   for (const batch of chunk(listingIds, 200)) {
-    const page = (unwrap(
-      await supabaseAdmin
+    // Mesmo motivo de fetchSnapshotTotals: listings x dias do mes passa
+    // facil das 1000 linhas padrao do Supabase sem paginacao explicita.
+    const page = await fetchAllPages<CalendarSnapshotRow>((rangeFrom, rangeTo) =>
+      supabaseAdmin
         .from("listing_daily_snapshot")
         .select("listing_id, snapshot_date, units_sold, revenue, orders_count, visits, price")
         .eq("company_id", companyId)
         .in("listing_id", batch)
         .gte("snapshot_date", from)
         .lte("snapshot_date", to)
-    ) ?? []) as CalendarSnapshotRow[];
+        .range(rangeFrom, rangeTo)
+    );
     rows.push(...page);
   }
 
