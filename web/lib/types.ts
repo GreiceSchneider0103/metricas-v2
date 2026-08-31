@@ -224,6 +224,8 @@ export type GoalProgress = {
 export type Alert = {
   id: string;
   listingId: string | null;
+  listingExternalId: string | null;
+  listingSku: string | null;
   code: string;
   severity: "low" | "medium" | "high" | "critical";
   title: string;

@@ -6,6 +6,7 @@ import { supabaseAdmin } from "../lib/supabase.js";
 type ListingRow = {
   id: string;
   price: number | null;
+  effective_price: number | null;
   available_quantity: number | null;
   status: string;
   has_ads: boolean;
@@ -147,11 +148,12 @@ function groupStatsByListing(orderItems: OrderItemRow[]) {
 // derivadas ja calculadas. E a UNICA escrita nessa tabela -- o endpoint do
 // mapa de vendas (fase 3) so le daqui (ver docs/architecture.md).
 //
-// "visits" fica sempre 0 e "conversion_rate" sempre null: a sync da fase 1
-// ainda nao busca a API de visitas do Mercado Livre. "effective_price" fica
-// null quando ha promocao ativa, porque tambem nao sincronizamos o preco
-// promocional de verdade ainda -- melhor null do que reportar o preco cheio
-// como se fosse o preco com desconto.
+// "visits" fica sempre 0: preenchido depois pelo job de visitas (fase 3),
+// que so atualiza a linha ja gravada aqui. "effective_price" e o preco
+// praticado de fato -- usa o preco com desconto sincronizado pela API de
+// seller-promotions (listings-sync.ts) quando ha promocao ativa, senao cai
+// pro preco cheio. E esse valor (nao "price") que o mapa de vendas e as
+// flechinhas de variacao mostram, porque e o que o comprador realmente paga.
 export async function aggregateListingDailySnapshotForCompany(companyId: string, snapshotDate: string) {
   return withJobRun(
     { companyId, jobName: "listing_daily_snapshot.aggregate", payload: { snapshotDate } },
@@ -159,7 +161,7 @@ export async function aggregateListingDailySnapshotForCompany(companyId: string,
       const listings = await fetchAllPages<ListingRow>((from, to) =>
         supabaseAdmin
           .from("listings")
-          .select("id, price, available_quantity, status, has_ads, has_promotion")
+          .select("id, price, effective_price, available_quantity, status, has_ads, has_promotion")
           .eq("company_id", companyId)
           .range(from, to)
       );
@@ -177,6 +179,7 @@ export async function aggregateListingDailySnapshotForCompany(companyId: string,
         const ordersCount = stats?.orderIds.size ?? 0;
         const unitsSold = stats?.unitsSold ?? 0;
         const revenue = stats?.revenue ?? 0;
+        const practicedPrice = listing.effective_price ?? listing.price ?? null;
 
         return {
           company_id: companyId,
@@ -187,7 +190,7 @@ export async function aggregateListingDailySnapshotForCompany(companyId: string,
           units_sold: unitsSold,
           revenue,
           price: listing.price ?? null,
-          effective_price: listing.has_promotion ? null : listing.price ?? null,
+          effective_price: practicedPrice,
           stock: listing.available_quantity ?? null,
           listing_status: listing.status,
           is_promotion_active: listing.has_promotion,

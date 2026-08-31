@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { fieldInput, fieldLabel } from "@/lib/ui";
 
 const ACCOUNT_STATUS_LABELS: Record<string, string> = {
   connected: "Conectada",
@@ -15,6 +16,16 @@ const ACCOUNT_STATUS_LABELS: Record<string, string> = {
   disconnected: "Desconectada"
 };
 
+function isoDaysAgo(days: number) {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() - days);
+  return date.toISOString().slice(0, 10);
+}
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export function IntegrationsPanel() {
   const api = useApi();
   const [status, setStatus] = useState<IntegrationStatus | null>(null);
@@ -22,10 +33,17 @@ export function IntegrationsPanel() {
   const [connecting, setConnecting] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [backfilling, setBackfilling] = useState(false);
+  const [backfillStage, setBackfillStage] = useState<string | null>(null);
   const [backfillMessage, setBackfillMessage] = useState<string | null>(null);
-  const [backfillingVisits, setBackfillingVisits] = useState(false);
-  const [visitsBackfillMessage, setVisitsBackfillMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Antes fixo no mes corrente -- meses anteriores nunca eram carregados, o
+  // que deixava qualquer comparacao com periodo anterior (e o grafico de
+  // ate 90 dias no drawer de anuncio) com dado quase vazio antes do mes
+  // atual, gerando variacoes absurdas (%) sem sentido. Agora o usuario
+  // escolhe o intervalo -- default: ultimos 90 dias, pra cobrir o que o
+  // grafico de "Evolução de vendas" pode exibir.
+  const [backfillFrom, setBackfillFrom] = useState(isoDaysAgo(90));
+  const [backfillTo, setBackfillTo] = useState(todayIso());
 
   async function loadStatus() {
     try {
@@ -70,43 +88,41 @@ export function IntegrationsPanel() {
     }
   }
 
-  async function handleBackfillMonth() {
+  // Carga retroativa completa de um periodo escolhido: pedidos -> agregacao
+  // diaria (listing_daily_snapshot, que e o que o mapa de vendas/graficos
+  // realmente leem) -> visitas. Antes esse ultimo passo do meio nao existia
+  // aqui -- so orders-backfill e visits-backfill eram chamados, entao pedidos
+  // de meses antigos ficavam gravados mas NUNCA agregados, e o mapa de
+  // vendas/comparacao de periodo continuavam vazios pra esses meses mesmo
+  // depois de "carregar o histórico".
+  async function handleBackfillHistory() {
     setBackfilling(true);
     setBackfillMessage(null);
     setError(null);
     try {
-      const now = new Date();
-      const from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-      const to = now.toISOString().slice(0, 10);
-      const result = await api<{ ordersUpserted: number; orderItemsUpserted: number }>("/api/v1/jobs/orders-backfill", {
+      setBackfillStage("Carregando pedidos…");
+      const orders = await api<{ ordersUpserted: number; orderItemsUpserted: number }>("/api/v1/jobs/orders-backfill", {
         method: "POST",
-        body: { from, to }
+        body: { from: backfillFrom, to: backfillTo }
       });
-      setBackfillMessage(`Histórico carregado: ${result.ordersUpserted} pedidos, ${result.orderItemsUpserted} itens.`);
+      setBackfillStage("Recalculando métricas diárias…");
+      await api("/api/v1/jobs/listing-daily-snapshot-aggregate-range", {
+        method: "POST",
+        body: { from: backfillFrom, to: backfillTo }
+      });
+      setBackfillStage("Carregando visitas…");
+      const visits = await api<{ listingsUpdated: number }>("/api/v1/jobs/visits-backfill", {
+        method: "POST",
+        body: { from: backfillFrom, to: backfillTo }
+      });
+      setBackfillMessage(
+        `Período carregado: ${orders.ordersUpserted} pedidos, ${orders.orderItemsUpserted} itens, ${visits.listingsUpdated} atualizações de visitas.`
+      );
     } catch {
-      setError("Falha ao carregar o histórico do mês.");
+      setError("Falha ao carregar o histórico do período. Algumas etapas podem ter sido concluídas -- tente de novo.");
     } finally {
       setBackfilling(false);
-    }
-  }
-
-  async function handleBackfillVisits() {
-    setBackfillingVisits(true);
-    setVisitsBackfillMessage(null);
-    setError(null);
-    try {
-      const now = new Date();
-      const from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-      const to = now.toISOString().slice(0, 10);
-      const result = await api<{ listingsUpdated: number }>("/api/v1/jobs/visits-backfill", {
-        method: "POST",
-        body: { from, to }
-      });
-      setVisitsBackfillMessage(`Visitas carregadas: ${result.listingsUpdated} atualizações.`);
-    } catch {
-      setError("Falha ao carregar as visitas do mês.");
-    } finally {
-      setBackfillingVisits(false);
+      setBackfillStage(null);
     }
   }
 
@@ -126,28 +142,32 @@ export function IntegrationsPanel() {
         <EmptyState title="Nenhuma conta do Mercado Livre conectada ainda" hint="Conecte uma conta para começar a sincronizar." />
       ) : (
         <div className="space-y-3">
-          <div className="flex items-center justify-end gap-4">
-            {backfillMessage && <p className="text-sm text-emerald-600">{backfillMessage}</p>}
-            {visitsBackfillMessage && <p className="text-sm text-emerald-600">{visitsBackfillMessage}</p>}
-            <button
-              onClick={handleBackfillMonth}
-              disabled={backfilling}
-              className="text-sm font-medium text-brand-600 hover:underline disabled:opacity-60"
-            >
-              {backfilling ? "Carregando histórico…" : "Carregar histórico do mês"}
-            </button>
-            <button
-              onClick={handleBackfillVisits}
-              disabled={backfillingVisits}
-              title="Pode demorar alguns minutos -- busca visitas dia a dia na API do Mercado Livre"
-              className="text-sm font-medium text-brand-600 hover:underline disabled:opacity-60"
-            >
-              {backfillingVisits ? "Carregando visitas…" : "Carregar visitas do mês"}
-            </button>
+          <Card className="flex flex-wrap items-end justify-between gap-3">
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <label className={fieldLabel}>De</label>
+                <input type="date" value={backfillFrom} onChange={(e) => setBackfillFrom(e.target.value)} className={fieldInput} />
+              </div>
+              <div>
+                <label className={fieldLabel}>Até</label>
+                <input type="date" value={backfillTo} onChange={(e) => setBackfillTo(e.target.value)} className={fieldInput} />
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={handleBackfillHistory}
+                disabled={backfilling}
+                title="Busca pedidos, recalcula métricas diárias e busca visitas do período -- pode demorar alguns minutos"
+              >
+                {backfilling ? backfillStage ?? "Carregando…" : "Carregar histórico do período"}
+              </Button>
+            </div>
             <button onClick={handleSync} disabled={syncing} className="text-sm font-medium text-brand-600 hover:underline disabled:opacity-60">
               {syncing ? "Sincronizando…" : "Sincronizar agora"}
             </button>
-          </div>
+          </Card>
+          {backfillMessage && <p className="text-sm text-emerald-600">{backfillMessage}</p>}
           <Card className="overflow-hidden p-0">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
