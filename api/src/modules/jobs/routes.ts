@@ -4,7 +4,8 @@ import { assertAdmOrMaster, getAuthContext } from "../../plugins/auth.js";
 import { runMlSyncAccountJob } from "../../jobs/ml-sync-account.js";
 import {
   aggregateListingDailySnapshotForCompany,
-  runListingDailySnapshotAggregateJobForYesterday
+  runListingDailySnapshotAggregateJobForYesterday,
+  runListingDailySnapshotAggregateRangeJob
 } from "../../jobs/listing-daily-snapshot-aggregate.js";
 import { runAlertsEvaluateJob } from "../../jobs/alerts-evaluate.js";
 import { runOrdersBackfillJob } from "../../jobs/orders-sync.js";
@@ -42,6 +43,16 @@ export async function jobRoutes(app: FastifyInstance) {
     return query.date
       ? aggregateListingDailySnapshotForCompany(context.companyId, query.date)
       : runListingDailySnapshotAggregateJobForYesterday(context.companyId);
+  });
+
+  // Reprocessa a agregacao pra um intervalo de dias (usado pelo botao
+  // "Atualizar tudo" do mapa de vendas, depois de orders-backfill trazer os
+  // pedidos do periodo).
+  app.post("/jobs/listing-daily-snapshot-aggregate-range", async (request) => {
+    const context = await getAuthContext(request);
+    assertAdmOrMaster(request, context);
+    const body = dateRangeBodySchema.parse(request.body ?? {});
+    return runListingDailySnapshotAggregateRangeJob(context.companyId, body.from, body.to);
   });
 
   // Carga retroativa manual (disparo unico, nao recorrente): busca
