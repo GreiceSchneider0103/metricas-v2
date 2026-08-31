@@ -71,3 +71,39 @@ jobs:
             -H "content-type: application/json" \
             -d "{\"companyId\":\"${{ inputs.backfill_company_id }}\",\"from\":\"${{ inputs.backfill_from }}\",\"to\":\"${{ inputs.backfill_to }}\"}" \
             --max-time 300
+
+  # Reagrega o mes corrente inteiro (nao so ontem) 1x por dia, as 5h em
+  # America/Sao_Paulo (UTC-3 fixo -- 08h UTC). O disparo "*/15 * * * *" roda
+  # o tempo todo; o horario exato de execucao dentro do job e quem decide se
+  # de fato chama a API -- checagem de relogio no proprio shell, nao um
+  # "if: github.event.schedule == ..." (essa comparacao de string ja se
+  # provou nao confiavel entre varias entradas de cron nesse workflow, ver
+  # nota do job "ml-sync" acima).
+  month-aggregate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reagregar mes corrente (so as 5h America/Sao_Paulo)
+        run: |
+          hour="$(TZ=America/Sao_Paulo date +%H)"
+          if [ "$hour" != "05" ]; then
+            echo "Fora da janela das 5h (hora atual: $hour) -- pulando."
+            exit 0
+          fi
+          curl -sS -f -X POST "https://metricas-v2-api.onrender.com/api/v1/cron/listing-daily-snapshot-aggregate-month-all" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" --max-time 600
+
+  # Atualiza o dia corrente (agregacao + visitas) 1x por hora -- mesma logica
+  # de checagem de relogio: dispara a cada ~15min, mas so chama a API no
+  # primeiro tick de cada hora (minuto < 15).
+  today-refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Atualizar dia corrente (so no primeiro tick de cada hora)
+        run: |
+          minute="$(date +%M | sed 's/^0*//')"
+          if [ -n "$minute" ] && [ "$minute" -ge 15 ]; then
+            echo "Fora da janela do primeiro tick da hora (minuto atual: $minute) -- pulando."
+            exit 0
+          fi
+          curl -sS -f -X POST "https://metricas-v2-api.onrender.com/api/v1/cron/today-refresh-all" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" --max-time 300

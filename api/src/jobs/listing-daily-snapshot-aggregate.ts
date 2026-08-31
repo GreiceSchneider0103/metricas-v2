@@ -214,3 +214,26 @@ export async function runListingDailySnapshotAggregateJobForYesterday(companyId:
   const yesterday = shiftIsoDate(getSaoPauloTodayIso(), -1);
   return aggregateListingDailySnapshotForCompany(companyId, yesterday);
 }
+
+// Agrega hoje especificamente -- ao contrario da funcao acima, aqui o
+// snapshot parcial do dia em andamento e o objetivo (atualizacao horaria do
+// dia atual, pedido explicito do usuario). Reprocessado varias vezes ao
+// longo do dia conforme mais pedidos fecham.
+export async function runListingDailySnapshotAggregateJobForToday(companyId: string) {
+  return aggregateListingDailySnapshotForCompany(companyId, getSaoPauloTodayIso());
+}
+
+// Agrega um intervalo de dias, um de cada vez -- usado pela carga retroativa
+// manual (botao "Atualizar tudo") e pelo recalculo diario do mes inteiro
+// (cron as 5h). Cada dia gera seu proprio registro em job_runs (mesmo
+// padrao ja usado nos outros jobs por dia).
+export async function runListingDailySnapshotAggregateRangeJob(companyId: string, startDate: string, endDate: string) {
+  let listingsProcessed = 0;
+  let date = startDate;
+  while (date <= endDate) {
+    const result = await aggregateListingDailySnapshotForCompany(companyId, date);
+    listingsProcessed += result.listingsProcessed;
+    date = shiftIsoDate(date, 1);
+  }
+  return { startDate, endDate, listingsProcessed };
+}

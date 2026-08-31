@@ -3,8 +3,13 @@ import { z } from "zod";
 import { config } from "../../config.js";
 import { supabaseAdmin } from "../../lib/supabase.js";
 import { unwrap } from "../../lib/db.js";
+import { getSaoPauloTodayIso } from "../../lib/dates.js";
 import { runMlSyncAccountJob } from "../../jobs/ml-sync-account.js";
-import { runListingDailySnapshotAggregateJobForYesterday } from "../../jobs/listing-daily-snapshot-aggregate.js";
+import {
+  runListingDailySnapshotAggregateJobForToday,
+  runListingDailySnapshotAggregateJobForYesterday,
+  runListingDailySnapshotAggregateRangeJob
+} from "../../jobs/listing-daily-snapshot-aggregate.js";
 import { runAlertsEvaluateJob } from "../../jobs/alerts-evaluate.js";
 import { runOrdersBackfillJob } from "../../jobs/orders-sync.js";
 import { runVisitsSyncJob } from "../../jobs/visits-sync.js";
@@ -55,6 +60,54 @@ export async function cronRoutes(app: FastifyInstance) {
     for (const companyId of companyIds) {
       try {
         results.push({ companyId, ...(await runListingDailySnapshotAggregateJobForYesterday(companyId)) });
+      } catch (error) {
+        results.push({ companyId, error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+
+    return { companiesProcessed: companyIds.length, results };
+  });
+
+  // Reagrega o mes corrente inteiro (dia 1 ate hoje), nao so ontem --
+  // pedido explicito do usuario, roda 1x por dia as 5h (ver cron.yml). Cobre
+  // pedidos que chegaram atrasados em dias ja fechados do mes.
+  app.post("/cron/listing-daily-snapshot-aggregate-month-all", async (request, reply) => {
+    const secret = request.headers["x-cron-secret"];
+    if (!config.CRON_SECRET || secret !== config.CRON_SECRET) {
+      return reply.code(401).send({ error: "invalid cron secret" });
+    }
+
+    const monthStart = `${getSaoPauloTodayIso().slice(0, 7)}-01`;
+    const today = getSaoPauloTodayIso();
+    const companyIds = await getConnectedCompanyIds();
+    const results = [];
+    for (const companyId of companyIds) {
+      try {
+        results.push({ companyId, ...(await runListingDailySnapshotAggregateRangeJob(companyId, monthStart, today)) });
+      } catch (error) {
+        results.push({ companyId, error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+
+    return { companiesProcessed: companyIds.length, results };
+  });
+
+  // Atualiza o dia corrente (agregacao + visitas) -- pedido explicito do
+  // usuario, roda de hora em hora (ver cron.yml). "Hoje" e um snapshot
+  // parcial por natureza, reescrito a cada rodada conforme mais pedidos
+  // fecham no dia.
+  app.post("/cron/today-refresh-all", async (request, reply) => {
+    const secret = request.headers["x-cron-secret"];
+    if (!config.CRON_SECRET || secret !== config.CRON_SECRET) {
+      return reply.code(401).send({ error: "invalid cron secret" });
+    }
+
+    const companyIds = await getConnectedCompanyIds();
+    const results = [];
+    for (const companyId of companyIds) {
+      try {
+        await runListingDailySnapshotAggregateJobForToday(companyId);
+        results.push({ companyId, ...(await runVisitsSyncJob(companyId, getSaoPauloTodayIso())) });
       } catch (error) {
         results.push({ companyId, error: error instanceof Error ? error.message : String(error) });
       }
