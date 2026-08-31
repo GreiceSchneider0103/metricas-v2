@@ -71,8 +71,13 @@ async function recomputeAbcCurveForCompany(companyId: string, snapshotDate: stri
     return { id: listingId, abc_curve: abcCurve };
   });
 
-  for (const batch of chunk(updates, 200)) {
-    const result = await supabaseAdmin.from("listings").upsert(batch, { onConflict: "id" });
+  // upsert() com colunas parciais nao serve aqui: o Postgres valida as
+  // colunas NOT NULL do INSERT (company_id, title, etc.) mesmo quando toda
+  // linha vai cair no ON CONFLICT DO UPDATE -- a validacao acontece antes de
+  // checar o conflito. Update por linha e o jeito seguro de atualizar so
+  // abc_curve sem reenviar a linha inteira.
+  for (const { id, abc_curve } of updates) {
+    const result = await supabaseAdmin.from("listings").update({ abc_curve }).eq("id", id);
     if (result.error) {
       throw new Error(`Falha ao atualizar curva ABC: ${result.error.message}`);
     }
@@ -229,11 +234,21 @@ export async function runListingDailySnapshotAggregateJobForToday(companyId: str
 // padrao ja usado nos outros jobs por dia).
 export async function runListingDailySnapshotAggregateRangeJob(companyId: string, startDate: string, endDate: string) {
   let listingsProcessed = 0;
+  const failedDates: string[] = [];
   let date = startDate;
   while (date <= endDate) {
-    const result = await aggregateListingDailySnapshotForCompany(companyId, date);
-    listingsProcessed += result.listingsProcessed;
+    try {
+      const result = await aggregateListingDailySnapshotForCompany(companyId, date);
+      listingsProcessed += result.listingsProcessed;
+    } catch (error) {
+      // Um dia com erro (rede instavel, etc.) nao pode derrubar o resto do
+      // intervalo -- isso ja aconteceu de verdade: um unico dia com falha
+      // interrompia a reagregacao do mes inteiro no meio, sem processar os
+      // dias seguintes e sem nenhum aviso alem do job_run individual falho.
+      console.error(`[listing-daily-snapshot-aggregate] falha ao agregar ${date}:`, error instanceof Error ? error.message : error);
+      failedDates.push(date);
+    }
     date = shiftIsoDate(date, 1);
   }
-  return { startDate, endDate, listingsProcessed };
+  return { startDate, endDate, listingsProcessed, failedDates };
 }
