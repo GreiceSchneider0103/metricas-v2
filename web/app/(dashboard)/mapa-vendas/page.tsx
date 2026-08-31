@@ -113,25 +113,23 @@ export default function MapaVendasPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, month, search, status, listingType, abcCurve, sort, page]);
 
-  // "Atualizar tudo": sincroniza anuncios (preco/estoque/status atual),
-  // busca pedidos dos ultimos 90 dias, reprocessa a agregacao desse periodo
-  // e busca as visitas -- tudo em sequencia, num unico clique, sem precisar
-  // ir em Configuracoes/Integracoes. Pode demorar alguns minutos.
+  // "Atualizar tudo": sincroniza anuncios (preco/estoque/status atual) e
+  // reprocessa pedidos/metricas/visitas so do mes que esta sendo visto na
+  // tela -- rapido, pra poder clicar quando quiser sem pesar. O historico de
+  // meses anteriores e carga unica (feita uma vez em Configuracoes >
+  // Integracoes e ja fica registrada no banco; nao precisa repetir aqui).
   async function handleRefreshAll() {
     setRefreshing(true);
     setError(null);
-    const to = new Date().toISOString().slice(0, 10);
-    const from = (() => {
-      const date = new Date();
-      date.setUTCDate(date.getUTCDate() - 90);
-      return date.toISOString().slice(0, 10);
-    })();
+    const today = new Date().toISOString().slice(0, 10);
+    const from = monthStart;
+    const to = monthEnd < today ? monthEnd : today;
     try {
       setRefreshStage("Sincronizando anúncios…");
       await api("/api/v1/jobs/ml-sync", { method: "POST" });
-      setRefreshStage("Carregando pedidos dos últimos 90 dias…");
+      setRefreshStage("Atualizando pedidos do mês…");
       await api("/api/v1/jobs/orders-backfill", { method: "POST", body: { from, to } });
-      setRefreshStage("Recalculando métricas do período…");
+      setRefreshStage("Recalculando métricas do mês…");
       await api("/api/v1/jobs/listing-daily-snapshot-aggregate-range", { method: "POST", body: { from, to } });
       setRefreshStage("Buscando visitas…");
       await api("/api/v1/jobs/visits-backfill", { method: "POST", body: { from, to } });
