@@ -1,6 +1,7 @@
 import { config } from "../config.js";
 import { shiftIsoDate } from "../lib/dates.js";
 import { unwrap } from "../lib/db.js";
+import { withJobRun } from "../lib/job-runs.js";
 import { supabaseAdmin } from "../lib/supabase.js";
 import { mlGetWithRetry } from "../modules/integrations/mercado-livre/client.js";
 import { getConnectedAccountsForCompany } from "../modules/integrations/mercado-livre/listings-sync.js";
@@ -145,4 +146,16 @@ export async function syncOrdersForCompany(companyId: string, startDate: string,
   }
 
   return { accountsProcessed, ordersUpserted, orderItemsUpserted };
+}
+
+// Carga retroativa: o ciclo normal (ml-sync-all) so busca os ultimos 3 dias
+// corridos (cobre pedidos que fecham com atraso, nao serve pra historico).
+// Usado uma vez ao conectar uma conta com anuncios ja ativos ha mais tempo,
+// ou pra preencher um periodo anterior a essa conexao -- mesma logica de
+// sync, so com o intervalo de datas explicito em vez do padrao de 3 dias.
+export async function runOrdersBackfillJob(companyId: string, startDate: string, endDate: string) {
+  return withJobRun(
+    { companyId, jobName: "orders.backfill", payload: { startDate, endDate } },
+    () => syncOrdersForCompany(companyId, startDate, endDate)
+  );
 }

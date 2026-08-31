@@ -1,10 +1,12 @@
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import { config } from "../../config.js";
 import { supabaseAdmin } from "../../lib/supabase.js";
 import { unwrap } from "../../lib/db.js";
 import { runMlSyncAccountJob } from "../../jobs/ml-sync-account.js";
 import { runListingDailySnapshotAggregateJobForYesterday } from "../../jobs/listing-daily-snapshot-aggregate.js";
 import { runAlertsEvaluateJob } from "../../jobs/alerts-evaluate.js";
+import { runOrdersBackfillJob } from "../../jobs/orders-sync.js";
 
 async function getConnectedCompanyIds() {
   const accounts = unwrap(
@@ -58,6 +60,27 @@ export async function cronRoutes(app: FastifyInstance) {
     }
 
     return { companiesProcessed: companyIds.length, results };
+  });
+
+  // Carga retroativa manual (disparo unico, nao um cron periodico): busca
+  // orders/order_items de uma empresa num intervalo de datas explicito, fora
+  // da janela padrao de 3 dias do ml-sync-all. Mesmo secret dos outros
+  // endpoints de /cron -- nao depende de sessao de usuario.
+  app.post("/cron/orders-backfill", async (request, reply) => {
+    const secret = request.headers["x-cron-secret"];
+    if (!config.CRON_SECRET || secret !== config.CRON_SECRET) {
+      return reply.code(401).send({ error: "invalid cron secret" });
+    }
+
+    const body = z
+      .object({
+        companyId: z.string().uuid(),
+        from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+      })
+      .parse(request.body ?? {});
+
+    return runOrdersBackfillJob(body.companyId, body.from, body.to);
   });
 
   // Fase 6: avalia as regras de alerta pra todas as empresas com pelo menos

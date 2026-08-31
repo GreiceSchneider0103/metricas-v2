@@ -3,7 +3,17 @@ name: Metricas cron jobs
 on:
   schedule:
     - cron: "*/15 * * * *" # unica entrada -- ver nota abaixo
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      backfill_company_id:
+        description: "company_id (uuid) para carga retroativa de pedidos -- deixe vazio pra so rodar o ciclo normal"
+        required: false
+      backfill_from:
+        description: "Data inicial (YYYY-MM-DD) da carga retroativa"
+        required: false
+      backfill_to:
+        description: "Data final (YYYY-MM-DD) da carga retroativa"
+        required: false
 
 jobs:
   # As 3 rotinas rodam juntas a cada disparo (a cada ~15min, sujeito ao
@@ -40,3 +50,15 @@ jobs:
         run: |
           curl -sS -f -X POST "https://metricas-v2-api.onrender.com/api/v1/cron/alerts-evaluate-all" \
             -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" --max-time 120
+
+  orders-backfill:
+    if: github.event_name == 'workflow_dispatch' && inputs.backfill_company_id != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Carga retroativa de pedidos
+        run: |
+          curl -sS -f -X POST "https://metricas-v2-api.onrender.com/api/v1/cron/orders-backfill" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -H "content-type: application/json" \
+            -d "{\"companyId\":\"${{ inputs.backfill_company_id }}\",\"from\":\"${{ inputs.backfill_from }}\",\"to\":\"${{ inputs.backfill_to }}\"}" \
+            --max-time 300

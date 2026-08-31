@@ -10,7 +10,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { fieldInput, fieldLabel } from "@/lib/ui";
-import { LISTING_STATUS_LABELS } from "@/lib/labels";
+import { LISTING_STATUS_LABELS, truncateWords } from "@/lib/labels";
 
 function currentMonth() {
   const now = new Date();
@@ -241,8 +241,12 @@ export default function MapaVendasPage() {
               data?.items.map((item) => (
                 <tr key={item.listingId} className="group border-t border-slate-100 transition-colors hover:bg-slate-50">
                   <td className="sticky left-0 z-10 border-r border-slate-200 bg-white px-4 py-2 group-hover:bg-slate-50">
-                    <button onClick={() => setSelectedListing(item)} className="text-left font-medium text-brand-700 hover:underline">
-                      {item.title}
+                    <button
+                      onClick={() => setSelectedListing(item)}
+                      title={item.title}
+                      className="block max-w-[220px] truncate text-left font-medium text-brand-700 hover:underline"
+                    >
+                      {truncateWords(item.title, 4)}
                     </button>
                     <div className="text-xs text-slate-400">
                       {item.externalId}
