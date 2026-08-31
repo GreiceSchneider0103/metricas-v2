@@ -16,11 +16,11 @@ function lastDayOfMonth(month: string) {
   return `${month}-${String(day).padStart(2, "0")}`;
 }
 
-const RANGE_OPTIONS = [
-  { label: "30 dias", days: 30 },
-  { label: "60 dias", days: 60 },
-  { label: "90 dias", days: 90 }
-];
+// Pedido explicito: so ultimos 30 dias, sem seletor de periodo -- 60/90
+// dias costumavam alcancar meses sem historico de pedidos/precos ainda
+// carregado, o que fazia o grafico parecer quebrado (quase vazio) em vez de
+// simplesmente nao ter dado disponivel.
+const TIMESERIES_RANGE_DAYS = 30;
 
 function isoDaysAgo(days: number) {
   const date = new Date();
@@ -56,7 +56,6 @@ export function ListingDrawer({
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [creatingTask, setCreatingTask] = useState(false);
   const [taskCreated, setTaskCreated] = useState(false);
-  const [rangeDays, setRangeDays] = useState(30);
   const [timeseries, setTimeseries] = useState<ListingTimeseriesResponse | null>(null);
   const [loadingTimeseries, setLoadingTimeseries] = useState(true);
 
@@ -84,7 +83,7 @@ export function ListingDrawer({
     let active = true;
     setLoadingTimeseries(true);
     api<ListingTimeseriesResponse>(`/api/v1/sales-map/${listing.listingId}/timeseries`, {
-      query: { from: isoDaysAgo(rangeDays), to: todayIso() }
+      query: { from: isoDaysAgo(TIMESERIES_RANGE_DAYS), to: todayIso() }
     })
       .then((result) => {
         if (active) setTimeseries(result);
@@ -99,7 +98,7 @@ export function ListingDrawer({
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listing.listingId, rangeDays]);
+  }, [listing.listingId]);
 
   useEffect(() => {
     api<{ items: TeamMember[] }>("/api/v1/team")
@@ -207,23 +206,7 @@ export function ListingDrawer({
         </div>
 
         <div className="mb-6 rounded-lg border border-slate-200 p-4">
-          <div className="mb-2 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-700">Evolução de vendas</h3>
-            <div className="flex gap-1">
-              {RANGE_OPTIONS.map((option) => (
-                <button
-                  key={option.days}
-                  type="button"
-                  onClick={() => setRangeDays(option.days)}
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium transition-colors ${
-                    rangeDays === option.days ? "bg-brand-600 text-white" : "text-slate-500 hover:bg-slate-100"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          <h3 className="mb-2 text-sm font-semibold text-slate-700">Evolução de vendas (últimos 30 dias)</h3>
 
           {loadingTimeseries && <p className="text-xs text-slate-400">Carregando…</p>}
 

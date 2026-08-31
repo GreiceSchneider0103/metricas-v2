@@ -128,6 +128,30 @@ async function fetchOrderItemsForOrders(companyId: string, orderIds: string[]) {
   return items;
 }
 
+type ExistingPriceRow = { listing_id: string; price: number | null; effective_price: number | null };
+
+// listings.price/effective_price so guardam o preco ATUAL (de agora), sem
+// historico -- o Mercado Livre nao expoe "qual era o preco no dia X do
+// passado". Rodar a agregacao pra um dia que ja tinha preco gravado (ex:
+// reprocessar o mes inteiro em "Atualizar tudo"/"Carregar histórico do
+// período") sempre carimbava o preco ATUAL em cima do preco daquele dia,
+// apagando qualquer oscilacao real que ja tinha sido capturada -- por isso
+// as flechinhas de variacao nunca apareciam, mesmo em anuncios que o
+// vendedor tem certeza que mudaram de preco. Preserva o preco ja gravado
+// pra dias passados; so "hoje" (que ainda esta em andamento) e sempre
+// atualizado com o preco atual.
+async function fetchExistingPrices(companyId: string, snapshotDate: string) {
+  const rows = await fetchAllPages<ExistingPriceRow>((from, to) =>
+    supabaseAdmin
+      .from("listing_daily_snapshot")
+      .select("listing_id, price, effective_price")
+      .eq("company_id", companyId)
+      .eq("snapshot_date", snapshotDate)
+      .range(from, to)
+  );
+  return new Map(rows.map((row) => [row.listing_id, row]));
+}
+
 function groupStatsByListing(orderItems: OrderItemRow[]) {
   const statsByListingId = new Map<string, ListingStats>();
 
@@ -173,13 +197,17 @@ export async function aggregateListingDailySnapshotForCompany(companyId: string,
       const orderIds = await fetchRevenueOrderIdsClosedOnDate(companyId, snapshotDate);
       const orderItems = await fetchOrderItemsForOrders(companyId, orderIds);
       const statsByListingId = groupStatsByListing(orderItems);
+      const isToday = snapshotDate === getSaoPauloTodayIso();
+      const existingPrices = isToday ? new Map<string, ExistingPriceRow>() : await fetchExistingPrices(companyId, snapshotDate);
 
       const rows = listings.map((listing) => {
         const stats = statsByListingId.get(listing.id);
         const ordersCount = stats?.orderIds.size ?? 0;
         const unitsSold = stats?.unitsSold ?? 0;
         const revenue = stats?.revenue ?? 0;
-        const practicedPrice = listing.effective_price ?? listing.price ?? null;
+        const existing = existingPrices.get(listing.id);
+        const price = existing?.price ?? listing.price ?? null;
+        const effectivePrice = existing?.effective_price ?? listing.effective_price ?? listing.price ?? null;
 
         return {
           company_id: companyId,
@@ -189,8 +217,8 @@ export async function aggregateListingDailySnapshotForCompany(companyId: string,
           orders_count: ordersCount,
           units_sold: unitsSold,
           revenue,
-          price: listing.price ?? null,
-          effective_price: practicedPrice,
+          price,
+          effective_price: effectivePrice,
           stock: listing.available_quantity ?? null,
           listing_status: listing.status,
           is_promotion_active: listing.has_promotion,
