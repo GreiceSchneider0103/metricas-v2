@@ -21,8 +21,7 @@ const NAV_ITEMS: { href: string; label: string; tab: AppTab }[] = [
 ];
 
 const PRECIFICACAO_URL = "https://precificacao-app.vercel.app/";
-// TODO: URL definitiva do Go Tickets ainda não foi enviada -- placeholder até o usuário passar o link.
-const GO_TICKETS_URL = "#";
+const GO_TICKETS_URL = "https://lessul-go-atendimento-2p7t.onrender.com/dashboard";
 
 const EXTERNAL_NAV_ITEMS = [
   { href: PRECIFICACAO_URL, label: "Precificação" },
