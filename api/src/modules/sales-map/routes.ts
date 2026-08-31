@@ -122,7 +122,9 @@ export async function salesMapRoutes(app: FastifyInstance) {
     const context = await getAuthContext(request);
     assertTabAllowed(request, context, "mapa_vendas");
     const params = listingIdParamsSchema.parse(request.params);
-    return { items: await getLinkedListings(context.companyId, params.listingId) };
+    const query = z.object({ from: isoDate.optional(), to: isoDate.optional() }).parse(request.query ?? {});
+    const period = query.from && query.to ? { from: query.from, to: query.to } : undefined;
+    return { items: await getLinkedListings(context.companyId, params.listingId, period) };
   });
 
   // Serie temporal diaria por anuncio (grafico no drawer) + variacao vs

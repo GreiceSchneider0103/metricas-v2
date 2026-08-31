@@ -23,6 +23,8 @@ export function IntegrationsPanel() {
   const [syncing, setSyncing] = useState(false);
   const [backfilling, setBackfilling] = useState(false);
   const [backfillMessage, setBackfillMessage] = useState<string | null>(null);
+  const [backfillingVisits, setBackfillingVisits] = useState(false);
+  const [visitsBackfillMessage, setVisitsBackfillMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function loadStatus() {
@@ -88,6 +90,26 @@ export function IntegrationsPanel() {
     }
   }
 
+  async function handleBackfillVisits() {
+    setBackfillingVisits(true);
+    setVisitsBackfillMessage(null);
+    setError(null);
+    try {
+      const now = new Date();
+      const from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+      const to = now.toISOString().slice(0, 10);
+      const result = await api<{ listingsUpdated: number }>("/api/v1/jobs/visits-backfill", {
+        method: "POST",
+        body: { from, to }
+      });
+      setVisitsBackfillMessage(`Visitas carregadas: ${result.listingsUpdated} atualizações.`);
+    } catch {
+      setError("Falha ao carregar as visitas do mês.");
+    } finally {
+      setBackfillingVisits(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-end">
@@ -106,12 +128,21 @@ export function IntegrationsPanel() {
         <div className="space-y-3">
           <div className="flex items-center justify-end gap-4">
             {backfillMessage && <p className="text-sm text-emerald-600">{backfillMessage}</p>}
+            {visitsBackfillMessage && <p className="text-sm text-emerald-600">{visitsBackfillMessage}</p>}
             <button
               onClick={handleBackfillMonth}
               disabled={backfilling}
               className="text-sm font-medium text-brand-600 hover:underline disabled:opacity-60"
             >
               {backfilling ? "Carregando histórico…" : "Carregar histórico do mês"}
+            </button>
+            <button
+              onClick={handleBackfillVisits}
+              disabled={backfillingVisits}
+              title="Pode demorar alguns minutos -- busca visitas dia a dia na API do Mercado Livre"
+              className="text-sm font-medium text-brand-600 hover:underline disabled:opacity-60"
+            >
+              {backfillingVisits ? "Carregando visitas…" : "Carregar visitas do mês"}
             </button>
             <button onClick={handleSync} disabled={syncing} className="text-sm font-medium text-brand-600 hover:underline disabled:opacity-60">
               {syncing ? "Sincronizando…" : "Sincronizar agora"}

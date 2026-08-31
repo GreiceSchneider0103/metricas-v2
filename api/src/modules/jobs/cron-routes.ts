@@ -7,6 +7,7 @@ import { runMlSyncAccountJob } from "../../jobs/ml-sync-account.js";
 import { runListingDailySnapshotAggregateJobForYesterday } from "../../jobs/listing-daily-snapshot-aggregate.js";
 import { runAlertsEvaluateJob } from "../../jobs/alerts-evaluate.js";
 import { runOrdersBackfillJob } from "../../jobs/orders-sync.js";
+import { runVisitsSyncJob } from "../../jobs/visits-sync.js";
 
 async function getConnectedCompanyIds() {
   const accounts = unwrap(
@@ -54,6 +55,28 @@ export async function cronRoutes(app: FastifyInstance) {
     for (const companyId of companyIds) {
       try {
         results.push({ companyId, ...(await runListingDailySnapshotAggregateJobForYesterday(companyId)) });
+      } catch (error) {
+        results.push({ companyId, error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+
+    return { companiesProcessed: companyIds.length, results };
+  });
+
+  // Preenche visits em listing_daily_snapshot pro dia anterior -- roda
+  // DEPOIS de listing-daily-snapshot-aggregate-all no agendamento externo
+  // (a linha do snapshot precisa existir antes do UPDATE).
+  app.post("/cron/visits-sync-all", async (request, reply) => {
+    const secret = request.headers["x-cron-secret"];
+    if (!config.CRON_SECRET || secret !== config.CRON_SECRET) {
+      return reply.code(401).send({ error: "invalid cron secret" });
+    }
+
+    const companyIds = await getConnectedCompanyIds();
+    const results = [];
+    for (const companyId of companyIds) {
+      try {
+        results.push({ companyId, ...(await runVisitsSyncJob(companyId)) });
       } catch (error) {
         results.push({ companyId, error: error instanceof Error ? error.message : String(error) });
       }

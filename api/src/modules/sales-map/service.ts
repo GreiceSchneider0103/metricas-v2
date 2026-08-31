@@ -528,7 +528,10 @@ export async function searchListingsForPicker(companyId: string, query: string) 
 // "Vinculados" pro drawer lateral: como catalogo/variacoes do ML nao sao
 // sincronizados (ver comentario em extractSku), usa SKU do vendedor igual
 // como proxy -- so retorna algo se o anuncio tiver SELLER_SKU preenchido.
-export async function getLinkedListings(companyId: string, listingId: string) {
+// unitsSold e opcional (period.from/to) pra mostrar vendas do mesmo periodo
+// que o drawer esta exibindo -- sem period, fica 0 (evita from/to obrigatorio
+// so pra esse card).
+export async function getLinkedListings(companyId: string, listingId: string, period?: { from: string; to: string }) {
   const listing = unwrap(
     await supabaseAdmin.from("listings").select("id, attributes").eq("company_id", companyId).eq("id", listingId).maybeSingle()
   );
@@ -544,12 +547,30 @@ export async function getLinkedListings(companyId: string, listingId: string) {
       .neq("id", listingId)
   );
 
+  const linkedIds = (rows ?? []).map((row) => row.id);
+  const unitsSoldByListing = new Map<string, number>();
+  if (period && linkedIds.length > 0) {
+    const snapshotRows = unwrap(
+      await supabaseAdmin
+        .from("listing_daily_snapshot")
+        .select("listing_id, units_sold")
+        .eq("company_id", companyId)
+        .in("listing_id", linkedIds)
+        .gte("snapshot_date", period.from)
+        .lte("snapshot_date", period.to)
+    );
+    for (const row of snapshotRows ?? []) {
+      unitsSoldByListing.set(row.listing_id, (unitsSoldByListing.get(row.listing_id) ?? 0) + row.units_sold);
+    }
+  }
+
   return (rows ?? []).map((row) => ({
     listingId: row.id,
     externalId: row.external_id,
     title: row.title,
     status: row.status,
-    permalink: row.permalink
+    permalink: row.permalink,
+    unitsSold: unitsSoldByListing.get(row.id) ?? 0
   }));
 }
 

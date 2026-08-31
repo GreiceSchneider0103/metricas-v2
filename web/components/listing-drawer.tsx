@@ -60,7 +60,9 @@ export function ListingDrawer({
 
   useEffect(() => {
     let active = true;
-    api<{ items: LinkedListing[] }>(`/api/v1/sales-map/${listing.listingId}/linked`)
+    api<{ items: LinkedListing[] }>(`/api/v1/sales-map/${listing.listingId}/linked`, {
+      query: { from: `${month}-01`, to: lastDayOfMonth(month) }
+    })
       .then((result) => {
         if (active) setLinked(result.items);
       })
@@ -74,7 +76,7 @@ export function ListingDrawer({
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listing.listingId]);
+  }, [listing.listingId, month]);
 
   useEffect(() => {
     let active = true;
@@ -294,11 +296,23 @@ export function ListingDrawer({
             </p>
           )}
           {!loadingLinked && linked.length > 0 && (
-            <ul className="space-y-1">
+            <ul className="space-y-1.5">
               {linked.map((item) => (
-                <li key={item.listingId} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm">
-                  <span className="truncate">{item.title}</span>
-                  <StatusBadge value={item.status} label={LISTING_STATUS_LABELS[item.status]} />
+                <li key={item.listingId} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate font-medium text-slate-700">{item.title}</span>
+                    <StatusBadge value={item.status} label={LISTING_STATUS_LABELS[item.status]} />
+                  </div>
+                  <div className="mt-1 flex items-center justify-between text-xs text-slate-400">
+                    <span>
+                      {item.externalId} · {item.unitsSold} {item.unitsSold === 1 ? "venda" : "vendas"}
+                    </span>
+                    {item.permalink && (
+                      <a href={item.permalink} target="_blank" rel="noreferrer" className="font-medium text-brand-600 hover:underline">
+                        Ver anúncio
+                      </a>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>

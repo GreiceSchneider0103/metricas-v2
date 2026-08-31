@@ -128,6 +128,7 @@ export type LinkedListing = {
   title: string;
   status: string;
   permalink: string | null;
+  unitsSold: number;
 };
 
 export type TimeseriesPoint = {

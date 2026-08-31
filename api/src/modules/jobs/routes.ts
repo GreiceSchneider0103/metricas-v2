@@ -8,6 +8,7 @@ import {
 } from "../../jobs/listing-daily-snapshot-aggregate.js";
 import { runAlertsEvaluateJob } from "../../jobs/alerts-evaluate.js";
 import { runOrdersBackfillJob } from "../../jobs/orders-sync.js";
+import { runVisitsBackfillJob, runVisitsSyncJob } from "../../jobs/visits-sync.js";
 
 const dateQuerySchema = z.object({
   date: z
@@ -52,6 +53,26 @@ export async function jobRoutes(app: FastifyInstance) {
     assertAdmOrMaster(request, context);
     const body = dateRangeBodySchema.parse(request.body ?? {});
     return runOrdersBackfillJob(context.companyId, body.from, body.to);
+  });
+
+  // Preenche visits em listing_daily_snapshot (a agregacao sozinha nao busca
+  // isso -- ver comentario em visits-sync.ts). Sem "date", faz o dia anterior
+  // (mesmo padrao dos outros jobs de dia unico).
+  app.post("/jobs/visits-sync", async (request) => {
+    const context = await getAuthContext(request);
+    assertAdmOrMaster(request, context);
+    const query = dateQuerySchema.parse(request.query ?? {});
+    return runVisitsSyncJob(context.companyId, query.date);
+  });
+
+  // Carga retroativa manual de visitas (disparo unico): os snapshots do
+  // intervalo ja precisam existir (rodar depois de orders-backfill +
+  // listing-daily-snapshot-aggregate cobrirem o mesmo periodo).
+  app.post("/jobs/visits-backfill", async (request) => {
+    const context = await getAuthContext(request);
+    assertAdmOrMaster(request, context);
+    const body = dateRangeBodySchema.parse(request.body ?? {});
+    return runVisitsBackfillJob(context.companyId, body.from, body.to);
   });
 
   // Fase 6: dispara a avaliacao de alertas manualmente. Sem "date" na query,
