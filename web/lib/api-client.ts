@@ -30,7 +30,12 @@ function buildQueryString(query?: RequestOptions["query"]) {
 // Bearer e a empresa ativa via x-company-id (ver api/src/plugins/auth.ts --
 // "o frontend guarda a empresa ativa localmente e manda em toda chamada").
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {};
+  // So manda Content-Type quando ha corpo de fato -- o Fastify rejeita com
+  // 400 (FST_ERR_CTP_EMPTY_JSON_BODY) uma request "application/json" com
+  // corpo vazio, antes mesmo de rodar o handler (nao e um erro de auth nem
+  // de logica, e so o parser recusando a request antes de chegar la).
+  if (options.body !== undefined) headers["Content-Type"] = "application/json";
   if (options.accessToken) headers.Authorization = `Bearer ${options.accessToken}`;
   if (options.companyId) headers["x-company-id"] = options.companyId;
 
