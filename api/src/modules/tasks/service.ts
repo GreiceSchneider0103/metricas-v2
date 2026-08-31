@@ -51,6 +51,38 @@ function mapTask(row: TaskRow) {
   };
 }
 
+// Preenche cada tarefa com o titulo/MLB do anuncio vinculado e o nome do
+// responsavel -- o frontend precisa dessa info nos cards de Atividades sem
+// ter que buscar listing/usuario um por um. Busca em lote (so os ids que
+// aparecem na pagina atual), nunca N+1.
+async function enrichTasks(rows: TaskRow[]) {
+  const listingIds = Array.from(new Set(rows.map((row) => row.related_listing_id).filter((id): id is string => Boolean(id))));
+  const userIds = Array.from(
+    new Set([...rows.map((row) => row.assigned_to), ...rows.map((row) => row.created_by)].filter((id): id is string => Boolean(id)))
+  );
+
+  const [listingRows, userRows] = await Promise.all([
+    listingIds.length
+      ? unwrap(await supabaseAdmin.from("listings").select("id, external_id, title, permalink").in("id", listingIds))
+      : Promise.resolve([]),
+    userIds.length
+      ? unwrap(await supabaseAdmin.from("users").select("id, full_name, email").in("id", userIds))
+      : Promise.resolve([])
+  ]);
+
+  const listingsById = new Map(
+    (listingRows ?? []).map((row) => [row.id, { id: row.id, externalId: row.external_id, title: row.title, permalink: row.permalink }])
+  );
+  const usersById = new Map((userRows ?? []).map((row) => [row.id, { id: row.id, fullName: row.full_name, email: row.email }]));
+
+  return rows.map((row) => ({
+    ...mapTask(row),
+    relatedListing: row.related_listing_id ? listingsById.get(row.related_listing_id) ?? null : null,
+    assignee: row.assigned_to ? usersById.get(row.assigned_to) ?? null : null,
+    creator: row.created_by ? usersById.get(row.created_by) ?? null : null
+  }));
+}
+
 async function recordTaskHistory(input: {
   companyId: string;
   taskId: string;
@@ -118,7 +150,7 @@ export async function createTask(input: {
     });
   }
 
-  return mapTask(task);
+  return (await enrichTasks([task]))[0];
 }
 
 export async function listTasks(companyId: string, filters: TaskFilters, page: number, pageSize: number) {
@@ -148,7 +180,7 @@ export async function listTasks(companyId: string, filters: TaskFilters, page: n
   }
 
   return {
-    items: ((result.data ?? []) as TaskRow[]).map(mapTask),
+    items: await enrichTasks((result.data ?? []) as TaskRow[]),
     pagination: { page, pageSize, total: result.count ?? 0 }
   };
 }
@@ -158,7 +190,7 @@ export async function getTaskById(companyId: string, taskId: string) {
     await supabaseAdmin.from("tasks").select(TASK_COLUMNS).eq("company_id", companyId).eq("id", taskId).maybeSingle()
   ) as TaskRow | null;
 
-  return row ? mapTask(row) : null;
+  return row ? (await enrichTasks([row]))[0] : null;
 }
 
 export async function updateTask(input: {
@@ -215,7 +247,7 @@ export async function updateTask(input: {
   if (updates.related_listing_id) await assertListingBelongsToCompany(input.companyId, updates.related_listing_id as string);
 
   if (Object.keys(updates).length === 0) {
-    return mapTask(current as TaskRow);
+    return (await enrichTasks([current as TaskRow]))[0];
   }
 
   const updated = unwrap(
@@ -246,7 +278,7 @@ export async function updateTask(input: {
     });
   }
 
-  return mapTask(updated);
+  return (await enrichTasks([updated]))[0];
 }
 
 export async function listTaskComments(companyId: string, taskId: string) {

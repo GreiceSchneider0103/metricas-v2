@@ -10,6 +10,12 @@ export const LISTING_TYPE_LABELS: Record<string, string> = {
   premium: "Premium"
 };
 
+export const ALERT_CODE_LABELS: Record<string, string> = {
+  no_sales_7d: "Sem vendas há 7 dias",
+  price_drop: "Queda de preço",
+  stock_low: "Estoque baixo"
+};
+
 // Titulos de anuncio do Mercado Livre costumam ter 10+ palavras -- em tabelas
 // densas (mapa de vendas) isso quebra a linha e some com o alinhamento. O
 // titulo completo continua acessivel via atributo title (tooltip nativo) e
