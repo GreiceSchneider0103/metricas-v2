@@ -42,6 +42,15 @@ jobs:
           curl -sS -f -X POST "https://metricas-v2-api.onrender.com/api/v1/cron/listing-daily-snapshot-aggregate-all" \
             -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" --max-time 120
 
+  visits-sync:
+    needs: aggregate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sincronizar visitas do dia anterior
+        run: |
+          curl -sS -f -X POST "https://metricas-v2-api.onrender.com/api/v1/cron/visits-sync-all" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" --max-time 300
+
   alerts:
     needs: aggregate
     runs-on: ubuntu-latest

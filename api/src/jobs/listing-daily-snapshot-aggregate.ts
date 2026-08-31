@@ -25,6 +25,60 @@ type ListingStats = {
   revenue: number;
 };
 
+function monthRangeForDate(snapshotDate: string) {
+  const [year, month] = snapshotDate.split("-").map(Number);
+  const start = `${snapshotDate.slice(0, 7)}-01`;
+  const end = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+  return { start, end };
+}
+
+// Curva ABC (Pareto por receita, 80/95/100) do mes corrente ao dia agregado --
+// recalculada a cada agregacao diaria pra ir se ajustando conforme o mes
+// avanca. Le direto de listing_daily_snapshot (ja gravado acima nesse mesmo
+// job), nunca de orders/order_items.
+async function recomputeAbcCurveForCompany(companyId: string, snapshotDate: string) {
+  const { start, end } = monthRangeForDate(snapshotDate);
+
+  const listings = await fetchAllPages<{ id: string }>((from, to) =>
+    supabaseAdmin.from("listings").select("id").eq("company_id", companyId).range(from, to)
+  );
+  if (listings.length === 0) return;
+
+  const snapshotRows = await fetchAllPages<{ listing_id: string; revenue: number }>((from, to) =>
+    supabaseAdmin
+      .from("listing_daily_snapshot")
+      .select("listing_id, revenue")
+      .eq("company_id", companyId)
+      .gte("snapshot_date", start)
+      .lte("snapshot_date", end)
+      .range(from, to)
+  );
+
+  const revenueByListing = new Map<string, number>();
+  for (const listing of listings) revenueByListing.set(listing.id, 0);
+  for (const row of snapshotRows) {
+    revenueByListing.set(row.listing_id, (revenueByListing.get(row.listing_id) ?? 0) + row.revenue);
+  }
+
+  const totalRevenue = Array.from(revenueByListing.values()).reduce((sum, value) => sum + value, 0);
+  const ranked = Array.from(revenueByListing.entries()).sort((a, b) => b[1] - a[1]);
+
+  let runningTotal = 0;
+  const updates = ranked.map(([listingId, revenue]) => {
+    runningTotal += revenue;
+    const abcCurve =
+      totalRevenue === 0 ? "C" : runningTotal <= totalRevenue * 0.8 ? "A" : runningTotal <= totalRevenue * 0.95 ? "B" : "C";
+    return { id: listingId, abc_curve: abcCurve };
+  });
+
+  for (const batch of chunk(updates, 200)) {
+    const result = await supabaseAdmin.from("listings").upsert(batch, { onConflict: "id" });
+    if (result.error) {
+      throw new Error(`Falha ao atualizar curva ABC: ${result.error.message}`);
+    }
+  }
+}
+
 // America/Sao_Paulo e UTC-3 fixo (ver lib/dates.ts) -- 00:00 local = 03:00 UTC.
 function saoPauloDayRangeUtc(snapshotDate: string) {
   return {
@@ -145,6 +199,8 @@ export async function aggregateListingDailySnapshotForCompany(companyId: string,
       if (result.error) {
         throw new Error(`Falha ao gravar listing_daily_snapshot: ${result.error.message}`);
       }
+
+      await recomputeAbcCurveForCompany(companyId, snapshotDate);
 
       return { snapshotDate, listingsProcessed: rows.length };
     }

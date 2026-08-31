@@ -3,14 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useApi } from "@/lib/auth-context";
 import type { CalendarListing, SalesMapCalendarResponse, SalesMapResponse } from "@/lib/types";
-import { StatusBadge } from "@/components/status-badge";
+import { StatusDot } from "@/components/status-badge";
 import { ListingDrawer } from "@/components/listing-drawer";
 import { VarianceBadge } from "@/components/variance-badge";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { fieldInput, fieldLabel } from "@/lib/ui";
-import { LISTING_STATUS_LABELS, truncateWords } from "@/lib/labels";
+import { LISTING_STATUS_LABELS, LISTING_TYPE_LABELS, truncateWords } from "@/lib/labels";
 
 function currentMonth() {
   const now = new Date();
@@ -33,7 +33,6 @@ const TREND_COLOR: Record<CalendarListing["trend"], string> = {
 };
 
 function DayCell({ day }: { day: CalendarListing["days"][number] }) {
-  const dayNumber = Number(day.date.slice(-2));
   const bg =
     day.targetStatus === "hit"
       ? "bg-emerald-500 text-white"
@@ -55,7 +54,7 @@ function DayCell({ day }: { day: CalendarListing["days"][number] }) {
       <div className={`relative flex h-7 w-7 items-center justify-center rounded-md text-[11px] font-medium transition-transform hover:scale-110 ${bg}`}>
         {day.priceChange === "up" && <span className="absolute -top-1 text-[9px] text-red-600">&#9650;</span>}
         {day.priceChange === "down" && <span className="absolute -top-1 text-[9px] text-emerald-600">&#9660;</span>}
-        {dayNumber}
+        {day.unitsSold > 0 ? day.unitsSold : ""}
       </div>
     </td>
   );
@@ -204,6 +203,7 @@ export default function MapaVendasPage() {
               <th className="sticky left-0 z-10 border-r border-slate-200 bg-slate-50 px-4 py-2.5 font-medium">Anúncio</th>
               <th className="px-2 py-2.5 font-medium">ABC</th>
               <th className="px-2 py-2.5 font-medium">Status</th>
+              <th className="px-2 py-2.5 font-medium">Tipo</th>
               {dayNumbers.map((day) => (
                 <th key={day} className="px-0.5 py-2.5 text-center font-normal">
                   {day}
@@ -225,14 +225,14 @@ export default function MapaVendasPage() {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={dayNumbers.length + 13} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={dayNumbers.length + 14} className="px-4 py-6 text-center text-slate-400">
                   Carregando…
                 </td>
               </tr>
             )}
             {!loading && data?.items.length === 0 && (
               <tr>
-                <td colSpan={dayNumbers.length + 13} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={dayNumbers.length + 14} className="px-4 py-6 text-center text-slate-400">
                   Nenhum anúncio encontrado.
                 </td>
               </tr>
@@ -255,7 +255,10 @@ export default function MapaVendasPage() {
                   </td>
                   <td className="px-2 py-2 text-center">{item.abcCurve ?? "—"}</td>
                   <td className="px-2 py-2">
-                    <StatusBadge value={item.status} label={LISTING_STATUS_LABELS[item.status]} />
+                    <StatusDot value={item.status} label={LISTING_STATUS_LABELS[item.status]} />
+                  </td>
+                  <td className="px-2 py-2 text-xs text-slate-600">
+                    {item.listingType ? (LISTING_TYPE_LABELS[item.listingType] ?? item.listingType) : "—"}
                   </td>
                   {item.days.map((day) => (
                     <DayCell key={day.date} day={day} />
