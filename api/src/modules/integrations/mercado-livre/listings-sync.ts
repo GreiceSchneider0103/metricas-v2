@@ -40,11 +40,17 @@ async function fetchSellerListingIds(accessToken: string, sellerId: string) {
   let offset = 0;
 
   while (true) {
-    const search = await mlGetWithRetry<{ results?: string[] }>(
+    const search = await mlGetWithRetry<{ results?: string[]; paging?: { total?: number } }>(
       config.MERCADO_LIVRE_API_BASE_URL,
       accessToken,
       `/users/${sellerId}/items/search?status=all&limit=${PAGE_SIZE}&offset=${offset}`
     );
+    if (offset === 0) {
+      // Diagnostico temporario: quando paging.total vem 0 pro dono da conta,
+      // normalmente e sub-usuario/colaborador (os anuncios pertencem a conta
+      // principal, nao a esse seller_id) -- nao um erro de sync.
+      console.log(`[ml-listings-sync] busca inicial seller=${sellerId} paging.total=${search.paging?.total ?? "?"}`);
+    }
     const results = (search.results ?? []).map(String);
     if (results.length === 0) break;
     itemIds.push(...results);
@@ -147,11 +153,16 @@ export async function fetchAdvertiserProfile(accessToken: string) {
 }
 
 export async function fetchSellerProfile(accessToken: string) {
-  const me = await mlGetWithRetry<{ id: number; nickname?: string }>(
-    config.MERCADO_LIVRE_API_BASE_URL,
-    accessToken,
-    "/users/me"
-  );
+  const me = await mlGetWithRetry<{
+    id: number;
+    nickname?: string;
+    user_type?: string;
+    tags?: string[];
+  }>(config.MERCADO_LIVRE_API_BASE_URL, accessToken, "/users/me");
+  // Diagnostico temporario: user_type/tags ajudam a distinguir conta
+  // principal de sub-usuario/colaborador (colaboradores tem 0 anuncios
+  // proprios -- os itens pertencem a conta principal, nao a eles).
+  console.log(`[ml-listings-sync] perfil autorizado id=${me.id} user_type=${me.user_type ?? "?"} tags=${JSON.stringify(me.tags ?? [])}`);
   return { sellerId: String(me.id), nickname: me.nickname ?? `seller-${me.id}` };
 }
 
