@@ -7,12 +7,18 @@ import {
   runListingDailySnapshotAggregateJobForYesterday
 } from "../../jobs/listing-daily-snapshot-aggregate.js";
 import { runAlertsEvaluateJob } from "../../jobs/alerts-evaluate.js";
+import { runOrdersBackfillJob } from "../../jobs/orders-sync.js";
 
 const dateQuerySchema = z.object({
   date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "date deve estar no formato YYYY-MM-DD")
     .optional()
+});
+
+const dateRangeBodySchema = z.object({
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "from deve estar no formato YYYY-MM-DD"),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "to deve estar no formato YYYY-MM-DD")
 });
 
 export async function jobRoutes(app: FastifyInstance) {
@@ -35,6 +41,17 @@ export async function jobRoutes(app: FastifyInstance) {
     return query.date
       ? aggregateListingDailySnapshotForCompany(context.companyId, query.date)
       : runListingDailySnapshotAggregateJobForYesterday(context.companyId);
+  });
+
+  // Carga retroativa manual (disparo unico, nao recorrente): busca
+  // orders/order_items da empresa logada num intervalo de datas explicito,
+  // fora da janela padrao de 3 dias do ml-sync. Util ao conectar uma conta
+  // com anuncios ja ativos ha mais tempo.
+  app.post("/jobs/orders-backfill", async (request) => {
+    const context = await getAuthContext(request);
+    assertAdmOrMaster(request, context);
+    const body = dateRangeBodySchema.parse(request.body ?? {});
+    return runOrdersBackfillJob(context.companyId, body.from, body.to);
   });
 
   // Fase 6: dispara a avaliacao de alertas manualmente. Sem "date" na query,
