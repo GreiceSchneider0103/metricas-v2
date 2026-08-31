@@ -21,6 +21,8 @@ export function IntegrationsPanel() {
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillMessage, setBackfillMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function loadStatus() {
@@ -66,6 +68,26 @@ export function IntegrationsPanel() {
     }
   }
 
+  async function handleBackfillMonth() {
+    setBackfilling(true);
+    setBackfillMessage(null);
+    setError(null);
+    try {
+      const now = new Date();
+      const from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+      const to = now.toISOString().slice(0, 10);
+      const result = await api<{ ordersUpserted: number; orderItemsUpserted: number }>("/api/v1/jobs/orders-backfill", {
+        method: "POST",
+        body: { from, to }
+      });
+      setBackfillMessage(`Histórico carregado: ${result.ordersUpserted} pedidos, ${result.orderItemsUpserted} itens.`);
+    } catch {
+      setError("Falha ao carregar o histórico do mês.");
+    } finally {
+      setBackfilling(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-end">
@@ -82,7 +104,15 @@ export function IntegrationsPanel() {
         <EmptyState title="Nenhuma conta do Mercado Livre conectada ainda" hint="Conecte uma conta para começar a sincronizar." />
       ) : (
         <div className="space-y-3">
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-end gap-4">
+            {backfillMessage && <p className="text-sm text-emerald-600">{backfillMessage}</p>}
+            <button
+              onClick={handleBackfillMonth}
+              disabled={backfilling}
+              className="text-sm font-medium text-brand-600 hover:underline disabled:opacity-60"
+            >
+              {backfilling ? "Carregando histórico…" : "Carregar histórico do mês"}
+            </button>
             <button onClick={handleSync} disabled={syncing} className="text-sm font-medium text-brand-600 hover:underline disabled:opacity-60">
               {syncing ? "Sincronizando…" : "Sincronizar agora"}
             </button>
