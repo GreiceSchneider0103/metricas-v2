@@ -11,6 +11,8 @@ function daysBetweenInclusive(from: string, to: string) {
   return Math.max(1, Math.round((toMs - fromMs) / 86_400_000) + 1);
 }
 
+let loggedSampleResponse = false;
+
 // So aceita 1 item por chamada -- o endpoint "multiget" (ids=A,B,C) que a
 // documentacao do ML sugere devolve "maximum amount of items to query is 1"
 // nessa conta (confirmado via log em producao). O app antigo ja tinha essa
@@ -27,9 +29,20 @@ export async function fetchVisitsForItem(accessToken: string, externalId: string
       accessToken,
       `/items/${externalId}/visits/time_window?last=${last}&unit=day&ending=${to}`
     );
+    if (!loggedSampleResponse) {
+      // Diagnostico temporario: confirma o formato real do campo "date" (com
+      // ou sem hora/timezone) e o nome do campo de contagem antes de assumir
+      // que bate certinho com snapshot_date (YYYY-MM-DD puro).
+      loggedSampleResponse = true;
+      console.log(`[ml-visits-sync] amostra da resposta externalId=${externalId}`, JSON.stringify(response).slice(0, 500));
+    }
     const byDate = new Map<string, number>();
     for (const entry of response.results ?? []) {
-      if (entry.date && typeof entry.total === "number") byDate.set(entry.date, entry.total);
+      // A API do ML costuma devolver "date" com hora/timezone
+      // (ex.: "2026-08-01T00:00:00.000-04:00"), nao YYYY-MM-DD puro --
+      // normaliza pra bater com listing_daily_snapshot.snapshot_date.
+      const date = entry.date?.slice(0, 10);
+      if (date && typeof entry.total === "number") byDate.set(date, entry.total);
     }
     return byDate;
   } catch (error) {
