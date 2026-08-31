@@ -36,6 +36,35 @@ function mapAlert(row: AlertRow) {
   };
 }
 
+// Mesmo criterio de sales-map/service.ts: SKU do vendedor vem do atributo
+// SELLER_SKU, sem coluna dedicada.
+function extractSku(attributes: Record<string, string | null> | null) {
+  return attributes?.SELLER_SKU ?? null;
+}
+
+// Pedido explicito: mostrar MLB e SKU do anuncio em cada alerta, sem precisar
+// abrir o mapa de vendas pra descobrir qual anuncio e. Busca em lote (so os
+// listingIds da pagina atual), nunca N+1.
+async function enrichAlerts(rows: AlertRow[]) {
+  const listingIds = Array.from(new Set(rows.map((row) => row.listing_id).filter((id): id is string => Boolean(id))));
+
+  const listingRows = listingIds.length
+    ? unwrap(await supabaseAdmin.from("listings").select("id, external_id, attributes").in("id", listingIds))
+    : [];
+  const byListingId = new Map(
+    (listingRows ?? []).map((row) => [row.id, { externalId: row.external_id, sku: extractSku(row.attributes) }])
+  );
+
+  return rows.map((row) => {
+    const info = row.listing_id ? byListingId.get(row.listing_id) : undefined;
+    return {
+      ...mapAlert(row),
+      listingExternalId: info?.externalId ?? null,
+      listingSku: info?.sku ?? null
+    };
+  });
+}
+
 export async function listAlerts(
   companyId: string,
   filters: { status?: AlertStatus; severity?: AlertSeverity; listingId?: string },
@@ -57,7 +86,7 @@ export async function listAlerts(
   }
 
   return {
-    items: ((result.data ?? []) as AlertRow[]).map(mapAlert),
+    items: await enrichAlerts((result.data ?? []) as AlertRow[]),
     pagination: { page, pageSize, total: result.count ?? 0 }
   };
 }
@@ -118,7 +147,13 @@ const ALERT_DEFINITIONS: Record<
   }
 };
 
-type SnapshotRow = { listing_id: string; snapshot_date: string; orders_count: number; price: number | null; stock: number | null };
+type SnapshotRow = {
+  listing_id: string;
+  snapshot_date: string;
+  orders_count: number;
+  effective_price: number | null;
+  stock: number | null;
+};
 
 async function fetchSnapshotWindow(companyId: string, listingIds: string[], windowStart: string, referenceDate: string) {
   const rows: SnapshotRow[] = [];
@@ -126,7 +161,7 @@ async function fetchSnapshotWindow(companyId: string, listingIds: string[], wind
     const batchRows = (unwrap(
       await supabaseAdmin
         .from("listing_daily_snapshot")
-        .select("listing_id, snapshot_date, orders_count, price, stock")
+        .select("listing_id, snapshot_date, orders_count, effective_price, stock")
         .eq("company_id", companyId)
         .in("listing_id", batch)
         .gte("snapshot_date", windowStart)
@@ -245,8 +280,8 @@ export async function evaluateAlertRulesForCompany(companyId: string, referenceD
 
     const first = rows[0];
     const last = rows[rows.length - 1];
-    if (first.price && last.price && first.price > 0) {
-      const dropPct = (first.price - last.price) / first.price;
+    if (first.effective_price && last.effective_price && first.effective_price > 0) {
+      const dropPct = (first.effective_price - last.effective_price) / first.effective_price;
       if (dropPct >= PRICE_DROP_THRESHOLD_PCT) triggered.price_drop.add(listing.id);
     }
 

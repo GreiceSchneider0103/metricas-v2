@@ -113,21 +113,61 @@ async function fetchActiveAdsItemIds(accessToken: string, advertiserId: string, 
   return activeIds;
 }
 
-async function fetchActivePromotionItemIds(accessToken: string, itemIds: string[]) {
+type MercadoLivrePromotionEntry = {
+  status?: string;
+  deal_price?: number | null;
+  sale_price?: number | null;
+  price?: number | null;
+  regular_amount?: number | null;
+  original_price?: number | null;
+};
+
+let loggedPromotionSample = false;
+
+// A API de seller-promotions devolve o preco com desconto em campos que
+// variam por tipo de promocao (deal_price pra "oferta do dia", price/
+// sale_price em outros tipos) -- tentamos varios nomes conhecidos, em ordem
+// de prioridade, e so aceitamos um valor que seja de fato menor que o preco
+// cheio do item (senao nao e desconto nenhum, e provavelmente um campo com
+// outro significado). O log de amostra (uma vez por processo) serve pra
+// confirmar em producao qual campo essa conta especifica usa -- mesmo
+// padrao ja usado em visits-sync.ts pra validar o formato real da resposta.
+function extractEffectivePrice(promo: MercadoLivrePromotionEntry, fullPrice: number | null) {
+  const candidates = [promo.deal_price, promo.sale_price, promo.price];
+  for (const candidate of candidates) {
+    if (typeof candidate === "number" && candidate > 0 && (fullPrice === null || candidate < fullPrice)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+async function fetchActivePromotionInfo(accessToken: string, itemIds: string[], priceByItemId: Map<string, number>) {
   const active = new Set<string>();
+  const effectivePriceByItemId = new Map<string, number>();
   const batches = chunk(itemIds, 10);
 
   for (const batch of batches) {
     await Promise.all(
       batch.map(async (itemId) => {
         try {
-          const response = await mlGetWithRetry<
-            { status?: string } | Array<{ status?: string }>
-          >(config.MERCADO_LIVRE_API_BASE_URL, accessToken, `/seller-promotions/items/${itemId}?app_version=v2`);
+          const response = await mlGetWithRetry<MercadoLivrePromotionEntry | MercadoLivrePromotionEntry[]>(
+            config.MERCADO_LIVRE_API_BASE_URL,
+            accessToken,
+            `/seller-promotions/items/${itemId}?app_version=v2`
+          );
           const promotions = Array.isArray(response) ? response : [response];
-          if (promotions.some((promo) => promo.status === "started")) {
-            active.add(itemId);
+          const started = promotions.find((promo) => promo.status === "started");
+          if (!started) return;
+          active.add(itemId);
+
+          if (!loggedPromotionSample) {
+            loggedPromotionSample = true;
+            console.log(`[ml-listings-sync] amostra de promocao ativa itemId=${itemId}`, JSON.stringify(started).slice(0, 500));
           }
+
+          const effectivePrice = extractEffectivePrice(started, priceByItemId.get(itemId) ?? null);
+          if (effectivePrice !== null) effectivePriceByItemId.set(itemId, effectivePrice);
         } catch {
           // 404 = item sem nenhuma promocao vinculada, tratado como "sem promo".
         }
@@ -135,7 +175,7 @@ async function fetchActivePromotionItemIds(accessToken: string, itemIds: string[
     );
   }
 
-  return active;
+  return { active, effectivePriceByItemId };
 }
 
 export async function fetchAdvertiserProfile(accessToken: string) {
@@ -192,12 +232,15 @@ export async function syncListingsForAccount(account: MlAccountForSync, accessTo
   }
 
   const siteId = itemIds[0]?.slice(0, 3) ?? "MLB";
-  const [activeAdsItemIds, activePromotionItemIds] = await Promise.all([
+  const priceByItemId = new Map(listings.map((item) => [item.id, item.price ?? 0]));
+  const [activeAdsItemIds, promotionInfo] = await Promise.all([
     account.advertiser_id
       ? fetchActiveAdsItemIds(accessToken, account.advertiser_id, siteId)
       : Promise.resolve(new Set<string>()),
-    fetchActivePromotionItemIds(accessToken, listings.map((item) => item.id))
+    fetchActivePromotionInfo(accessToken, listings.map((item) => item.id), priceByItemId)
   ]);
+  const activePromotionItemIds = promotionInfo.active;
+  const effectivePriceByItemId = promotionInfo.effectivePriceByItemId;
 
   const categoryNameById = new Map<string, string>();
   const missingCategoryIds = Array.from(
@@ -225,6 +268,7 @@ export async function syncListingsForAccount(account: MlAccountForSync, accessTo
     is_catalog: item.catalog_listing ?? false,
     has_ads: activeAdsItemIds.has(item.id.toUpperCase()),
     has_promotion: activePromotionItemIds.has(item.id),
+    effective_price: effectivePriceByItemId.get(item.id) ?? null,
     attributes: Object.fromEntries(
       (item.attributes ?? [])
         .filter((attribute) => attribute.id)

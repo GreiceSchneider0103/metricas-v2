@@ -59,17 +59,6 @@ export default function AlertasPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, api]);
 
-  // Cada topico (codigo de alerta) comeca aberto por padrao -- so fecha os
-  // que ja existiam quando o usuario clicar pra colapsar. Um topico novo que
-  // apareca depois (ex: troca de filtro de status) volta a comecar aberto.
-  useEffect(() => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      for (const alert of alerts) next.add(alert.code);
-      return next;
-    });
-  }, [alerts]);
-
   function toggleGroup(code: string) {
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -148,6 +137,13 @@ export default function AlertasPage() {
                             <StatusBadge value={alert.severity} label={SEVERITY_LABELS[alert.severity]} />
                           </div>
                           {alert.description && <p className="mt-1 text-sm text-slate-500">{alert.description}</p>}
+                          {(alert.listingExternalId || alert.listingSku) && (
+                            <p className="mt-1 text-xs text-slate-400">
+                              {alert.listingExternalId && <>MLB: {alert.listingExternalId}</>}
+                              {alert.listingExternalId && alert.listingSku && " · "}
+                              {alert.listingSku && <>SKU: {alert.listingSku}</>}
+                            </p>
+                          )}
                           <p className="mt-1 text-xs text-slate-400">{new Date(alert.createdAt).toLocaleString("pt-BR")}</p>
                         </div>
                         <div className="flex items-center gap-3">

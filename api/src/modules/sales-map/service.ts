@@ -286,7 +286,7 @@ type CalendarSnapshotRow = {
   revenue: number;
   orders_count: number;
   visits: number;
-  price: number | null;
+  effective_price: number | null;
 };
 
 type UnitGoalRow = {
@@ -321,7 +321,7 @@ async function fetchCalendarSnapshots(companyId: string, listingIds: string[], f
     const page = await fetchAllPages<CalendarSnapshotRow>((rangeFrom, rangeTo) =>
       supabaseAdmin
         .from("listing_daily_snapshot")
-        .select("listing_id, snapshot_date, units_sold, revenue, orders_count, visits, price")
+        .select("listing_id, snapshot_date, units_sold, revenue, orders_count, visits, effective_price")
         .eq("company_id", companyId)
         .in("listing_id", batch)
         .gte("snapshot_date", from)
@@ -419,7 +419,10 @@ export async function getSalesMapCalendar(input: {
       const revenue = snapshot?.revenue ?? 0;
       const ordersCount = snapshot?.orders_count ?? 0;
       const visits = snapshot?.visits ?? 0;
-      const price = snapshot?.price ?? null;
+      // effective_price (nao price): o preco praticado de fato, com desconto
+      // de promocao ativa aplicado quando houver -- e o que o comprador
+      // realmente paga, e o que precisa refletir na variacao dia a dia.
+      const price = snapshot?.effective_price ?? null;
 
       let priceChange: "up" | "down" | "same" | null = null;
       if (price !== null && previousPrice !== null) {
@@ -592,14 +595,14 @@ type SingleListingSnapshotRow = {
   revenue: number;
   orders_count: number;
   visits: number;
-  price: number | null;
+  effective_price: number | null;
 };
 
 async function fetchSingleListingSnapshots(companyId: string, listingId: string, from: string, to: string) {
   const rows = unwrap(
     await supabaseAdmin
       .from("listing_daily_snapshot")
-      .select("snapshot_date, units_sold, revenue, orders_count, visits, price")
+      .select("snapshot_date, units_sold, revenue, orders_count, visits, effective_price")
       .eq("company_id", companyId)
       .eq("listing_id", listingId)
       .gte("snapshot_date", from)
@@ -650,7 +653,7 @@ export async function getListingTimeseries(input: { companyId: string; listingId
       revenue: row?.revenue ?? 0,
       ordersCount: row?.orders_count ?? 0,
       visits: row?.visits ?? 0,
-      price: row?.price ?? null
+      price: row?.effective_price ?? null
     };
   });
 
