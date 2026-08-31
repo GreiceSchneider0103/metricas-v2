@@ -35,6 +35,46 @@ function normalizeListingType(value: string | null | undefined) {
   }
 }
 
+// Diagnostico temporario: usuario confirmou que a conta tem anuncios reais
+// (87 anuncios visiveis em vendedores.mercadolivre.com.br), mas status=all
+// devolveu paging.total=0 -- descarta "conta vazia"/"conta errada". Testa em
+// paralelo se e especifico do filtro status=all (bug/mudanca na API) ou se a
+// conta inteira nao devolve nada pra esse token (ex.: token de colaborador
+// sem escopo pros itens da conta principal).
+async function logSellerListingsDiagnostics(accessToken: string, sellerId: string) {
+  const probes: Array<[string, string]> = [
+    ["status=all", `/users/${sellerId}/items/search?status=all&limit=1&offset=0`],
+    ["status=active", `/users/${sellerId}/items/search?status=active&limit=1&offset=0`],
+    ["sem status", `/users/${sellerId}/items/search?limit=1&offset=0`]
+  ];
+
+  const results = await Promise.all(
+    probes.map(async ([label, path]) => {
+      try {
+        const search = await mlGetWithRetry<{ paging?: { total?: number } }>(config.MERCADO_LIVRE_API_BASE_URL, accessToken, path);
+        return `${label}=${search.paging?.total ?? "?"}`;
+      } catch (error) {
+        const status = (error as { status?: number }).status;
+        return `${label}=erro(status=${status ?? "?"},msg=${error instanceof Error ? error.message : String(error)})`;
+      }
+    })
+  );
+
+  let profileSummary = "erro ao buscar perfil publico";
+  try {
+    const profile = await mlGetWithRetry<{
+      id?: number;
+      nickname?: string;
+      seller_reputation?: { power_seller_status?: string | null; transactions?: { total?: number } };
+    }>(config.MERCADO_LIVRE_API_BASE_URL, accessToken, `/users/${sellerId}`);
+    profileSummary = `id=${profile.id} nickname=${profile.nickname} power_seller=${profile.seller_reputation?.power_seller_status ?? "?"} transacoes=${profile.seller_reputation?.transactions?.total ?? "?"}`;
+  } catch (error) {
+    profileSummary = `erro ao buscar perfil publico: ${error instanceof Error ? error.message : String(error)}`;
+  }
+
+  console.log(`[ml-listings-sync] diagnostico seller=${sellerId}: ${results.join(" | ")} | perfil: ${profileSummary}`);
+}
+
 async function fetchSellerListingIds(accessToken: string, sellerId: string) {
   const itemIds: string[] = [];
   let offset = 0;
@@ -46,10 +86,7 @@ async function fetchSellerListingIds(accessToken: string, sellerId: string) {
       `/users/${sellerId}/items/search?status=all&limit=${PAGE_SIZE}&offset=${offset}`
     );
     if (offset === 0) {
-      // Diagnostico temporario: quando paging.total vem 0 pro dono da conta,
-      // normalmente e sub-usuario/colaborador (os anuncios pertencem a conta
-      // principal, nao a esse seller_id) -- nao um erro de sync.
-      console.log(`[ml-listings-sync] busca inicial seller=${sellerId} paging.total=${search.paging?.total ?? "?"}`);
+      await logSellerListingsDiagnostics(accessToken, sellerId);
     }
     const results = (search.results ?? []).map(String);
     if (results.length === 0) break;
