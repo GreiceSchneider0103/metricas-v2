@@ -14,6 +14,16 @@ import { runAlertsEvaluateJob } from "../../jobs/alerts-evaluate.js";
 import { runOrdersBackfillJob } from "../../jobs/orders-sync.js";
 import { runVisitsSyncJob } from "../../jobs/visits-sync.js";
 
+// Aceita qualquer um dos dois secrets configurados -- CRON_SECRET (usado
+// pelo GitHub Actions) ou SUPABASE_CRON_SECRET (usado pelo pg_cron do
+// Supabase, gatilho redundante e mais confiavel: o schedule do GitHub
+// Actions ja ficou horas sem disparar nenhuma vez, mesmo ativo, um
+// problema conhecido de confiabilidade do lado do GitHub, nao daqui).
+function isValidCronSecret(secret: unknown) {
+  if (typeof secret !== "string" || secret.length === 0) return false;
+  return secret === config.CRON_SECRET || secret === config.SUPABASE_CRON_SECRET;
+}
+
 async function getConnectedCompanyIds() {
   const accounts = unwrap(
     await supabaseAdmin.from("ml_accounts").select("company_id").eq("status", "connected")
@@ -26,8 +36,7 @@ async function getConnectedCompanyIds() {
 export async function cronRoutes(app: FastifyInstance) {
   // Roda o sync de todas as empresas com pelo menos uma conta ML conectada.
   app.post("/cron/ml-sync-all", async (request, reply) => {
-    const secret = request.headers["x-cron-secret"];
-    if (!config.CRON_SECRET || secret !== config.CRON_SECRET) {
+    if (!isValidCronSecret(request.headers["x-cron-secret"])) {
       return reply.code(401).send({ error: "invalid cron secret" });
     }
 
@@ -50,8 +59,7 @@ export async function cronRoutes(app: FastifyInstance) {
   // de verdade -- um agendamento tipico e ml-sync-all a cada poucas horas e
   // este endpoint uma vez por dia, logo apos a meia-noite local.
   app.post("/cron/listing-daily-snapshot-aggregate-all", async (request, reply) => {
-    const secret = request.headers["x-cron-secret"];
-    if (!config.CRON_SECRET || secret !== config.CRON_SECRET) {
+    if (!isValidCronSecret(request.headers["x-cron-secret"])) {
       return reply.code(401).send({ error: "invalid cron secret" });
     }
 
@@ -72,8 +80,7 @@ export async function cronRoutes(app: FastifyInstance) {
   // pedido explicito do usuario, roda 1x por dia as 5h (ver cron.yml). Cobre
   // pedidos que chegaram atrasados em dias ja fechados do mes.
   app.post("/cron/listing-daily-snapshot-aggregate-month-all", async (request, reply) => {
-    const secret = request.headers["x-cron-secret"];
-    if (!config.CRON_SECRET || secret !== config.CRON_SECRET) {
+    if (!isValidCronSecret(request.headers["x-cron-secret"])) {
       return reply.code(401).send({ error: "invalid cron secret" });
     }
 
@@ -97,8 +104,7 @@ export async function cronRoutes(app: FastifyInstance) {
   // parcial por natureza, reescrito a cada rodada conforme mais pedidos
   // fecham no dia.
   app.post("/cron/today-refresh-all", async (request, reply) => {
-    const secret = request.headers["x-cron-secret"];
-    if (!config.CRON_SECRET || secret !== config.CRON_SECRET) {
+    if (!isValidCronSecret(request.headers["x-cron-secret"])) {
       return reply.code(401).send({ error: "invalid cron secret" });
     }
 
@@ -120,8 +126,7 @@ export async function cronRoutes(app: FastifyInstance) {
   // DEPOIS de listing-daily-snapshot-aggregate-all no agendamento externo
   // (a linha do snapshot precisa existir antes do UPDATE).
   app.post("/cron/visits-sync-all", async (request, reply) => {
-    const secret = request.headers["x-cron-secret"];
-    if (!config.CRON_SECRET || secret !== config.CRON_SECRET) {
+    if (!isValidCronSecret(request.headers["x-cron-secret"])) {
       return reply.code(401).send({ error: "invalid cron secret" });
     }
 
@@ -143,8 +148,7 @@ export async function cronRoutes(app: FastifyInstance) {
   // da janela padrao de 3 dias do ml-sync-all. Mesmo secret dos outros
   // endpoints de /cron -- nao depende de sessao de usuario.
   app.post("/cron/orders-backfill", async (request, reply) => {
-    const secret = request.headers["x-cron-secret"];
-    if (!config.CRON_SECRET || secret !== config.CRON_SECRET) {
+    if (!isValidCronSecret(request.headers["x-cron-secret"])) {
       return reply.code(401).send({ error: "invalid cron secret" });
     }
 
@@ -164,8 +168,7 @@ export async function cronRoutes(app: FastifyInstance) {
   // listing-daily-snapshot-aggregate-all no agendamento externo -- depende
   // do snapshot do dia ja estar gravado.
   app.post("/cron/alerts-evaluate-all", async (request, reply) => {
-    const secret = request.headers["x-cron-secret"];
-    if (!config.CRON_SECRET || secret !== config.CRON_SECRET) {
+    if (!isValidCronSecret(request.headers["x-cron-secret"])) {
       return reply.code(401).send({ error: "invalid cron secret" });
     }
 

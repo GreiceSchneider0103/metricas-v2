@@ -20,6 +20,11 @@ const envSchema = z.object({
   CORS_ALLOWED_ORIGINS: z.string().optional(),
   APP_WEB_URL: optionalUrl,
   CRON_SECRET: optionalNonEmptyString,
+  // Segundo segredo valido pras rotas /cron/*, independente do CRON_SECRET
+  // usado pelo GitHub Actions -- permite o pg_cron do Supabase (gatilho
+  // redundante e mais confiavel, ver cron-routes.ts) chamar as mesmas rotas
+  // sem precisar reusar/rotacionar o secret do workflow existente.
+  SUPABASE_CRON_SECRET: optionalNonEmptyString,
 
   SUPABASE_URL: z.string().url(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
