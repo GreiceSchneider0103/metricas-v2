@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useApi } from "@/lib/auth-context";
 import type { CalendarListing, LinkedListing, ListingTimeseriesResponse, TeamMember } from "@/lib/types";
 import { StatusBadge } from "@/components/status-badge";
-import { VarianceBadge } from "@/components/variance-badge";
 import { Button } from "@/components/ui/button";
 import { fieldInput } from "@/lib/ui";
 import { LISTING_STATUS_LABELS } from "@/lib/labels";
@@ -214,50 +213,47 @@ export function ListingDrawer({
             <>
               <div className="h-32 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={timeseries.series} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="listingUnitsGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#2f4fc0" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="#2f4fc0" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
+                  <LineChart data={timeseries.series} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                     <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(value: string) => value.slice(-2)} />
-                    <YAxis tick={{ fontSize: 10 }} allowDecimals={false} width={24} />
+                    <YAxis yAxisId="units" tick={{ fontSize: 10 }} allowDecimals={false} width={24} />
+                    <YAxis yAxisId="visits" orientation="right" tick={{ fontSize: 10 }} allowDecimals={false} width={28} />
                     <Tooltip
                       labelFormatter={(value) => `Dia ${String(value)}`}
-                      formatter={(value) => [String(value), "Vendas"]}
+                      formatter={(value, name) => [String(value), name === "unitsSold" ? "Vendas" : "Visitas"]}
                     />
-                    <Area type="monotone" dataKey="unitsSold" stroke="#2f4fc0" fill="url(#listingUnitsGradient)" strokeWidth={2} />
-                  </AreaChart>
+                    <Line yAxisId="units" type="monotone" dataKey="unitsSold" stroke="#2f4fc0" strokeWidth={2} dot={false} />
+                    <Line yAxisId="visits" type="monotone" dataKey="visits" stroke="#f59e0b" strokeWidth={2} dot={false} />
+                  </LineChart>
                 </ResponsiveContainer>
+              </div>
+              <div className="mt-1.5 flex items-center gap-4 text-[11px] text-slate-500">
+                <span className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-[#2f4fc0]" /> Vendas
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-[#f59e0b]" /> Visitas
+                </span>
               </div>
 
               <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
                 <div>
                   <div className="text-slate-400">Vendas</div>
                   <div className="font-medium text-slate-700">{timeseries.totals.unitsSold}</div>
-                  <VarianceBadge percent={timeseries.variance.unitsSoldPercent} />
                 </div>
                 <div>
                   <div className="text-slate-400">Receita</div>
                   <div className="font-medium text-slate-700">{currency.format(timeseries.totals.revenue)}</div>
-                  <VarianceBadge percent={timeseries.variance.revenuePercent} />
                 </div>
                 <div>
                   <div className="text-slate-400">Pedidos</div>
                   <div className="font-medium text-slate-700">{timeseries.totals.ordersCount}</div>
-                  <VarianceBadge percent={timeseries.variance.ordersCountPercent} />
                 </div>
                 <div>
                   <div className="text-slate-400">Visitas</div>
                   <div className="font-medium text-slate-700">{timeseries.totals.visits}</div>
-                  <VarianceBadge percent={timeseries.variance.visitsPercent} />
                 </div>
               </div>
-              <p className="mt-2 text-[11px] text-slate-400">
-                Vs. período anterior ({timeseries.previousPeriod.from} a {timeseries.previousPeriod.to})
-              </p>
             </>
           )}
         </div>
