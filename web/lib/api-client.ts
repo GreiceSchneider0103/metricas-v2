@@ -1,3 +1,5 @@
+import { supabase } from "./supabase-client";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 export class ApiError extends Error {
@@ -30,6 +32,18 @@ function buildQueryString(query?: RequestOptions["query"]) {
 // Bearer e a empresa ativa via x-company-id (ver api/src/plugins/auth.ts --
 // "o frontend guarda a empresa ativa localmente e manda em toda chamada").
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  return performRequest<T>(path, options, true);
+}
+
+// Uma aba deixada aberta em segundo plano por muito tempo (ex.: a conta
+// compartilhada em Configuracoes > Integrações, ligando contas do Mercado
+// Livre uma a uma) throttla o timer de auto-refresh do supabase-js -- o
+// access_token guardado no estado do React fica vencido e toda chamada
+// passa a voltar 401 silenciosamente. Em vez de deixar a pessoa presa
+// vendo erro generico pra sempre, tenta renovar a sessao e repetir a
+// chamada UMA vez; se nem isso resolver, desloga -- o layout ja redireciona
+// pro login sozinho quando a sessao fica nula (ver DashboardLayout).
+async function performRequest<T>(path: string, options: RequestOptions, allowRefresh: boolean): Promise<T> {
   const headers: Record<string, string> = {};
   // So manda Content-Type quando ha corpo de fato -- o Fastify rejeita com
   // 400 (FST_ERR_CTP_EMPTY_JSON_BODY) uma request "application/json" com
@@ -44,6 +58,14 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
     headers,
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined
   });
+
+  if (response.status === 401 && allowRefresh && options.accessToken) {
+    const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+    if (!refreshError && refreshed.session) {
+      return performRequest<T>(path, { ...options, accessToken: refreshed.session.access_token }, false);
+    }
+    await supabase.auth.signOut();
+  }
 
   const contentType = response.headers.get("content-type") ?? "";
   const data = contentType.includes("application/json") ? await response.json().catch(() => null) : null;
