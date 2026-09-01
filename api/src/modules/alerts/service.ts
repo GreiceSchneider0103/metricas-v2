@@ -128,24 +128,36 @@ const PRICE_DROP_THRESHOLD_PCT = 0.1;
 // visits e sempre 0 -- nao ha "queda" real pra detectar, so ruido.
 const ALERT_DEFINITIONS: Record<
   AlertCode,
-  { severity: AlertSeverity; buildTitle: (listingTitle: string) => string; description: string }
+  { severity: AlertSeverity; buildTitle: (listingTitle: string) => string; description: string; notificationLabel: string }
 > = {
   no_sales_7d: {
     severity: "medium",
     buildTitle: (title) => `Sem vendas ha ${LOOKBACK_DAYS} dias: ${title}`,
-    description: `Nenhum pedido registrado nos ultimos ${LOOKBACK_DAYS} dias com snapshot completo.`
+    description: `Nenhum pedido registrado nos ultimos ${LOOKBACK_DAYS} dias com snapshot completo.`,
+    notificationLabel: `Sem vendas há ${LOOKBACK_DAYS} dias`
   },
   price_drop: {
     severity: "low",
     buildTitle: (title) => `Queda de preco: ${title}`,
-    description: `Preco caiu ${Math.round(PRICE_DROP_THRESHOLD_PCT * 100)}% ou mais nos ultimos ${LOOKBACK_DAYS} dias.`
+    description: `Preco caiu ${Math.round(PRICE_DROP_THRESHOLD_PCT * 100)}% ou mais nos ultimos ${LOOKBACK_DAYS} dias.`,
+    notificationLabel: "Queda de preço"
   },
   stock_low: {
     severity: "high",
     buildTitle: (title) => `Estoque baixo: ${title}`,
-    description: `Estoque atual e menor ou igual a ${STOCK_LOW_THRESHOLD} unidades.`
+    description: `Estoque atual e menor ou igual a ${STOCK_LOW_THRESHOLD} unidades.`,
+    notificationLabel: "Estoque baixo"
   }
 };
+
+// So pro corpo da notificacao (nao pro titulo do alerta em si, que continua
+// completo) -- titulo de anuncio do Mercado Livre costuma ter 10+ palavras,
+// nao cabe no dropdown de notificacoes do sino.
+function truncateWords(text: string, maxWords: number) {
+  const words = text.trim().split(/\s+/);
+  if (words.length <= maxWords) return text;
+  return `${words.slice(0, maxWords).join(" ")}…`;
+}
 
 type SnapshotRow = {
   listing_id: string;
@@ -187,11 +199,13 @@ async function getActiveAdminUserIds(companyId: string) {
 // Faz o diff entre quem deveria estar disparando a regra hoje (triggeringListingIds)
 // e os alertas ja abertos com esse code: abre o que e novo, resolve o que
 // parou de valer, nunca duplica um alerta pra quem ja esta em aberto.
+type AlertListingInfo = { id: string; title: string; external_id: string; permalink: string | null };
+
 async function syncAlertsForCode(
   companyId: string,
   code: AlertCode,
   triggeringListingIds: Set<string>,
-  listingsById: Map<string, { id: string; title: string }>
+  listingsById: Map<string, AlertListingInfo>
 ) {
   const existingOpen = unwrap(
     await supabaseAdmin.from("alerts").select("id, listing_id").eq("company_id", companyId).eq("code", code).eq("status", "open")
@@ -216,11 +230,11 @@ async function syncAlertsForCode(
       };
     });
 
-  const opened: Array<{ id: string; title: string }> = [];
+  const opened: Array<{ id: string; title: string; listing_id: string | null }> = [];
   if (toInsert.length > 0) {
-    const result = await supabaseAdmin.from("alerts").insert(toInsert).select("id, title");
+    const result = await supabaseAdmin.from("alerts").insert(toInsert).select("id, title, listing_id");
     if (result.error) throw new Error(`Falha ao abrir alertas (${code}): ${result.error.message}`);
-    opened.push(...((result.data ?? []) as Array<{ id: string; title: string }>));
+    opened.push(...((result.data ?? []) as Array<{ id: string; title: string; listing_id: string | null }>));
   }
 
   const toResolveIds = Array.from(openByListing.entries())
@@ -246,8 +260,13 @@ export async function evaluateAlertRulesForCompany(companyId: string, referenceD
   windowStart.setUTCDate(windowStart.getUTCDate() - (LOOKBACK_DAYS - 1));
   const windowStartIso = windowStart.toISOString().slice(0, 10);
 
-  const listings = await fetchAllPages<{ id: string; title: string; status: string }>((from, to) =>
-    supabaseAdmin.from("listings").select("id, title, status").eq("company_id", companyId).eq("status", "active").range(from, to)
+  const listings = await fetchAllPages<AlertListingInfo & { status: string }>((from, to) =>
+    supabaseAdmin
+      .from("listings")
+      .select("id, title, external_id, permalink, status")
+      .eq("company_id", companyId)
+      .eq("status", "active")
+      .range(from, to)
   );
 
   if (listings.length === 0) {
@@ -292,24 +311,31 @@ export async function evaluateAlertRulesForCompany(companyId: string, referenceD
 
   let alertsOpened = 0;
   let alertsResolved = 0;
-  const newlyOpened: Array<{ id: string; title: string }> = [];
+  const newlyOpened: Array<{ id: string; title: string; listing_id: string | null; code: AlertCode }> = [];
 
   for (const code of Object.keys(triggered) as AlertCode[]) {
     const result = await syncAlertsForCode(companyId, code, triggered[code], listingsById);
     alertsOpened += result.opened.length;
     alertsResolved += result.resolvedCount;
-    newlyOpened.push(...result.opened);
+    newlyOpened.push(...result.opened.map((alert) => ({ ...alert, code })));
   }
 
   if (newlyOpened.length > 0) {
     const adminUserIds = await getActiveAdminUserIds(companyId);
     for (const userId of adminUserIds) {
       for (const alert of newlyOpened) {
+        // Pedido explicito: notificacao com o tipo do alerta (nao o titulo
+        // completo, que ja embute o titulo inteiro do anuncio), 4 primeiras
+        // palavras do anuncio + MLB no corpo, e link direto pro anuncio no
+        // Mercado Livre -- tudo clicavel no sino de notificacoes.
+        const listing = alert.listing_id ? listingsById.get(alert.listing_id) : undefined;
         await createNotification({
           companyId,
           userId,
           type: "alert",
-          title: alert.title,
+          title: ALERT_DEFINITIONS[alert.code].notificationLabel,
+          body: listing ? `${truncateWords(listing.title, 4)} · ${listing.external_id}` : undefined,
+          link: listing?.permalink ?? undefined,
           metadata: { alertId: alert.id }
         });
       }

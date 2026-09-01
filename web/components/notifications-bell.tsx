@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useApi } from "@/lib/auth-context";
 import type { NotificationItem, Paginated } from "@/lib/types";
+
+const dateTimeFormat = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
 export function NotificationsBell() {
   const api = useApi();
@@ -40,6 +43,15 @@ export function NotificationsBell() {
     }
   }
 
+  // Marca como lida ao clicar (link ou não) -- não bloqueia a navegação em
+  // si, só dispara a chamada em paralelo.
+  function handleItemClick(item: NotificationItem) {
+    if (item.isRead) return;
+    setItems((current) => current.map((i) => (i.id === item.id ? { ...i, isRead: true } : i)));
+    setUnreadCount((count) => Math.max(0, count - 1));
+    api(`/api/v1/notifications/${item.id}/read`, { method: "PATCH" }).catch(() => {});
+  }
+
   return (
     <div className="relative">
       <button
@@ -67,12 +79,49 @@ export function NotificationsBell() {
           </div>
           <div className="max-h-80 overflow-y-auto">
             {items.length === 0 && <p className="px-4 py-6 text-center text-sm text-slate-400">Sem notificações</p>}
-            {items.map((item) => (
-              <div key={item.id} className={`border-b border-slate-50 px-4 py-3 text-sm ${item.isRead ? "text-slate-400" : "text-slate-700"}`}>
-                <p className="font-medium">{item.title}</p>
-                {item.body && <p className="text-xs">{item.body}</p>}
-              </div>
-            ))}
+            {items.map((item) => {
+              const rowClasses = `block border-b border-slate-50 px-4 py-3 text-sm transition-colors hover:bg-slate-50 ${
+                item.isRead ? "text-slate-400" : "text-slate-700"
+              }`;
+              const content = (
+                <>
+                  <p className="font-medium">{item.title}</p>
+                  {item.body && <p className="mt-0.5 text-xs">{item.body}</p>}
+                  <p className="mt-1 text-[11px] text-slate-400">{dateTimeFormat.format(new Date(item.createdAt))}</p>
+                </>
+              );
+
+              if (!item.link) {
+                return (
+                  <div key={item.id} className={rowClasses} onClick={() => handleItemClick(item)}>
+                    {content}
+                  </div>
+                );
+              }
+
+              // Link externo (ex: anuncio no Mercado Livre) abre em nova aba;
+              // link interno (ex: /atividades) navega dentro do proprio app.
+              if (item.link.startsWith("http")) {
+                return (
+                  <a
+                    key={item.id}
+                    href={item.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={rowClasses}
+                    onClick={() => handleItemClick(item)}
+                  >
+                    {content}
+                  </a>
+                );
+              }
+
+              return (
+                <Link key={item.id} href={item.link} className={rowClasses} onClick={() => handleItemClick(item)}>
+                  {content}
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}
