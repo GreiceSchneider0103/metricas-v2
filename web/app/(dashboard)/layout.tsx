@@ -7,6 +7,7 @@ import { useApi, useAuth } from "@/lib/auth-context";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
+import { HeaderMenu, HeaderMenuItem } from "@/components/ui/header-menu";
 import type { AppTab } from "@/lib/types";
 
 const ALL_TABS: AppTab[] = ["mapa_vendas", "atividades", "alertas", "configuracoes"];
@@ -137,17 +138,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <span className="hidden text-base font-semibold tracking-tight text-slate-900 sm:inline">Go Metriks</span>
             </Link>
             {showChannelSelector && (
-              <select
-                value="meli"
-                onChange={() => router.push("/mapa-vendas")}
-                title="Canal de vendas -- por enquanto só Mercado Livre está disponível"
-                className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:border-slate-300"
+              <HeaderMenu
+                label="Mercado Livre"
+                className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-sm font-medium text-slate-700 hover:border-slate-300"
               >
-                <option value="meli">Mercado Livre</option>
-                <option value="magalu" disabled>
-                  Magalu (em breve)
-                </option>
-              </select>
+                <HeaderMenuItem selected onClick={() => router.push("/mapa-vendas")}>
+                  Mercado Livre
+                </HeaderMenuItem>
+                <HeaderMenuItem disabled hint="Em breve">
+                  Magalu
+                </HeaderMenuItem>
+              </HeaderMenu>
             )}
           </div>
 
@@ -156,17 +157,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="flex items-center gap-4">
             {/* Sempre seletor, mesmo com 1 empresa só -- um usuário pode
                 pertencer a múltiplas empresas e precisa poder trocar. */}
-            <select
-              value={activeCompany?.id ?? ""}
-              onChange={(e) => setActiveCompanyId(e.target.value)}
-              className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:border-slate-300"
+            <HeaderMenu
+              align="right"
+              label={<span className="max-w-[160px] truncate">{activeCompany?.name ?? "Selecionar empresa"}</span>}
+              className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-sm font-medium text-slate-700 hover:border-slate-300"
             >
               {companies.map((company) => (
-                <option key={company.id} value={company.id}>
+                <HeaderMenuItem key={company.id} selected={company.id === activeCompany?.id} onClick={() => setActiveCompanyId(company.id)}>
                   {company.name}
-                </option>
+                </HeaderMenuItem>
               ))}
-            </select>
+            </HeaderMenu>
             <NotificationsBell />
             <span className="hidden text-sm text-slate-500 md:inline">{session.user.email}</span>
             <button onClick={() => signOut()} className="text-sm font-medium text-slate-500 transition-colors hover:text-slate-800">
@@ -188,24 +189,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           ))}
           <div className="mx-1.5 my-1 h-4 w-px bg-slate-200" />
           {/* Menu selecionável: só abre o app escolhido em nova aba, não navega
-              dentro do próprio app -- por isso reseta pro placeholder sempre. */}
-          <select
-            value=""
-            onChange={(e) => {
-              if (e.target.value) window.open(e.target.value, "_blank", "noreferrer");
-              e.target.value = "";
-            }}
-            className="whitespace-nowrap rounded-full border-none bg-transparent px-4 py-1.5 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
-          >
-            <option value="" disabled>
-              Aplicativos
-            </option>
+              dentro do próprio app. */}
+          <HeaderMenu label="Aplicativos" className="rounded-full px-4 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700">
             {APP_NAV_ITEMS.map((item) => (
-              <option key={item.href} value={item.href}>
+              <HeaderMenuItem key={item.href} onClick={() => window.open(item.href, "_blank", "noreferrer")}>
                 {item.label}
-              </option>
+              </HeaderMenuItem>
             ))}
-          </select>
+          </HeaderMenu>
         </nav>
       </header>
       {/* max-w mais largo (era 1600px) -- o mapa de vendas tem ~46 colunas
