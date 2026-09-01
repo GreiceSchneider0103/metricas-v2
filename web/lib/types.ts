@@ -1,5 +1,11 @@
 export type CompanyRole = "master" | "adm" | "agente";
 
+// Canal de vendas -- Magalu ainda nao sincroniza dados de verdade (falta o
+// modulo de integracao no backend), mas o filtro por canal ja funciona: sem
+// nenhum anuncio "magalu" no banco, a tela so mostra o estado vazio ate a
+// integracao existir.
+export type SalesChannel = "mercado_livre" | "magalu";
+
 export type AppTab = "mapa_vendas" | "atividades" | "alertas" | "configuracoes";
 
 export const APP_TAB_LABELS: Record<AppTab, string> = {

@@ -161,10 +161,25 @@ export function IntegrationsPanel() {
     <div className="space-y-6">
       <ConnectStepsGuide />
 
-      <div className="flex items-center justify-end">
-        <Button onClick={handleConnect} disabled={connecting}>
-          {connecting ? "Gerando link…" : "Conectar conta Mercado Livre"}
-        </Button>
+      {/* Dois cards fixos -- sempre os dois visiveis, independente do canal
+          selecionado no topo (Mercado Livre/Magalu). Magalu ainda nao tem
+          integracao de verdade no backend (endpoints em levantamento), fica
+          em standby ate isso ser definido. */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Card className="flex flex-col items-start gap-2">
+          <h3 className="text-sm font-semibold text-slate-700">Mercado Livre</h3>
+          <p className="text-xs text-slate-500">Conecte a conta da loja pra sincronizar anúncios, pedidos e visitas.</p>
+          <Button onClick={handleConnect} disabled={connecting} size="sm">
+            {connecting ? "Gerando link…" : "Conectar conta Mercado Livre"}
+          </Button>
+        </Card>
+        <Card className="flex flex-col items-start gap-2 opacity-70">
+          <h3 className="text-sm font-semibold text-slate-700">Magalu</h3>
+          <p className="text-xs text-slate-500">Integração em desenvolvimento -- em breve.</p>
+          <Button size="sm" disabled>
+            Conectar conta Magalu
+          </Button>
+        </Card>
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}

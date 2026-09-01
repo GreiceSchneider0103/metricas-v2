@@ -10,6 +10,7 @@ export type SalesMapFilters = {
   abcCurve?: string;
   hasAds?: boolean;
   hasPromotion?: boolean;
+  channel?: "mercado_livre" | "magalu";
 };
 
 export type SalesMapSortField = "revenue" | "unitsSold" | "ordersCount" | "avgTicket" | "title";
@@ -129,6 +130,9 @@ async function fetchFilteredListings(companyId: string, filters: SalesMapFilters
     if (filters.abcCurve) query = query.eq("abc_curve", filters.abcCurve);
     if (filters.hasAds !== undefined) query = query.eq("has_ads", filters.hasAds);
     if (filters.hasPromotion !== undefined) query = query.eq("has_promotion", filters.hasPromotion);
+    // Sem filtro explicito, mantem o comportamento de sempre (so ML) -- nao
+    // muda nada pra nenhum chamador que ainda nao manda "channel".
+    query = query.eq("channel", filters.channel ?? "mercado_livre");
 
     return query.range(from, to);
   });
