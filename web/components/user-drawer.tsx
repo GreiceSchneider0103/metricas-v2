@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useApi } from "@/lib/auth-context";
+import { supabase } from "@/lib/supabase-client";
 import type { AppTab, CompanySearchResult, TeamMember, UserMembership } from "@/lib/types";
 import { TabCheckboxes } from "@/components/tab-checkboxes";
 import { StatusBadge } from "@/components/status-badge";
@@ -29,6 +30,8 @@ export function UserDrawer({
   const [memberships, setMemberships] = useState<UserMembership[] | null>(null);
   const [loadingMemberships, setLoadingMemberships] = useState(isPlatformAdmin);
   const [error, setError] = useState<string | null>(null);
+  const [sendingReset, setSendingReset] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   useEffect(() => {
     if (!isPlatformAdmin) return;
@@ -65,6 +68,29 @@ export function UserDrawer({
     }
   }
 
+  // Pedido explicito: master/adm poder disparar a redefinicao de senha de
+  // outro usuario, sem precisar pedir pra pessoa clicar em "Esqueci minha
+  // senha" ela mesma. resetPasswordForEmail e a mesma chamada publica que
+  // ja roda na tela de login -- nao precisa de rota nova no backend nem
+  // permissao especial, so manda o e-mail de redefinicao de novo.
+  async function handleSendPasswordReset() {
+    if (!member.email) return;
+    setSendingReset(true);
+    setError(null);
+    setResetSent(false);
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(member.email, {
+        redirectTo: `${window.location.origin}/reset-password`
+      });
+      if (resetError) throw resetError;
+      setResetSent(true);
+    } catch {
+      setError("Não foi possível enviar o link de redefinição de senha.");
+    } finally {
+      setSendingReset(false);
+    }
+  }
+
   async function updateMembership(
     companyId: string | undefined,
     changes: { role?: "adm" | "agente"; isActive?: boolean; allowedTabs?: AppTab[] }
@@ -94,6 +120,15 @@ export function UserDrawer({
             ✕
           </button>
         </div>
+
+        {(canManage || isPlatformAdmin) && member.email && (
+          <div className="mb-4 flex items-center gap-2">
+            <Button type="button" size="sm" variant="secondary" onClick={handleSendPasswordReset} disabled={sendingReset}>
+              {sendingReset ? "Enviando…" : "Enviar redefinição de senha"}
+            </Button>
+            {resetSent && <span className="text-xs text-emerald-600">Link enviado por e-mail.</span>}
+          </div>
+        )}
 
         {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
 
