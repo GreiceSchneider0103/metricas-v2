@@ -11,19 +11,21 @@ import type { AppTab } from "@/lib/types";
 
 const ALL_TABS: AppTab[] = ["mapa_vendas", "atividades", "alertas", "configuracoes"];
 
-// Equipe, Metas e Integrações viraram abas dentro de Configurações -- não
-// têm mais rota própria (ver components/settings/*).
-const NAV_ITEMS: { href: string; label: string; tab: AppTab }[] = [
-  { href: "/mapa-vendas", label: "Mapa de vendas", tab: "mapa_vendas" },
-  { href: "/atividades", label: "Atividades", tab: "atividades" },
-  { href: "/alertas", label: "Alertas", tab: "alertas" },
-  { href: "/configuracoes", label: "Configurações", tab: "configuracoes" }
+// Equipe e Integrações viraram abas dentro de Configurações; Atividades,
+// Alertas e Metas viraram abas dentro de Operacional -- nenhuma delas tem
+// mais rota propria (ver components/settings/* e components/operational/*).
+// "tabs" tem mais de um valor pra Operacional porque ele agrupa duas
+// permissoes (atividades/alertas): basta ter uma das duas pra ver a aba.
+const NAV_ITEMS: { href: string; label: string; tabs: AppTab[] }[] = [
+  { href: "/mapa-vendas", label: "Mercado Livre", tabs: ["mapa_vendas"] },
+  { href: "/operacional", label: "Operacional", tabs: ["atividades", "alertas"] },
+  { href: "/configuracoes", label: "Configurações", tabs: ["configuracoes"] }
 ];
 
 const PRECIFICACAO_URL = "https://precificacao-app.vercel.app/";
 const GO_TICKETS_URL = "https://lessul-go-atendimento-2p7t.onrender.com/dashboard";
 
-const EXTERNAL_NAV_ITEMS = [
+const APP_NAV_ITEMS = [
   { href: PRECIFICACAO_URL, label: "Precificação" },
   { href: GO_TICKETS_URL, label: "Go Tickets" }
 ];
@@ -95,7 +97,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
 
   const allowedTabs = isPlatformAdmin ? ALL_TABS : (activeCompany?.allowedTabs ?? ALL_TABS);
-  const visibleNavItems = NAV_ITEMS.filter((item) => allowedTabs.includes(item.tab));
+  const visibleNavItems = NAV_ITEMS.filter((item) => item.tabs.some((tab) => allowedTabs.includes(tab)));
+  // Mercado Livre/Magalu virou um seletor ao lado da logo, nao uma pilula de
+  // navegacao -- fica de fora da lista renderizada como pilulas, mas segue
+  // valendo pra guarda de acesso acima (visibleNavItems).
+  const pillNavItems = visibleNavItems.filter((item) => item.href !== "/mapa-vendas");
+  const showChannelSelector = allowedTabs.includes("mapa_vendas");
 
   useEffect(() => {
     if (!loading && !session) router.replace("/login");
@@ -107,7 +114,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (loading || !session || companies.length === 0) return;
     const current = NAV_ITEMS.find((item) => pathname?.startsWith(item.href));
-    if (current && !allowedTabs.includes(current.tab) && visibleNavItems[0]) {
+    if (current && !current.tabs.some((tab) => allowedTabs.includes(tab)) && visibleNavItems[0]) {
       router.replace(visibleNavItems[0].href);
     }
   }, [loading, session, companies.length, pathname, allowedTabs, visibleNavItems, router]);
@@ -127,6 +134,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="flex items-center gap-2.5">
             <Logo className="h-8 w-8" />
             <span className="hidden text-base font-semibold tracking-tight text-slate-900 sm:inline">Go Metriks</span>
+            {showChannelSelector && (
+              <select
+                value="meli"
+                onChange={() => router.push("/mapa-vendas")}
+                title="Canal de vendas -- por enquanto só Mercado Livre está disponível"
+                className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:border-slate-300"
+              >
+                <option value="meli">Mercado Livre</option>
+                <option value="magalu" disabled>
+                  Magalu (em breve)
+                </option>
+              </select>
+            )}
           </div>
 
           <div className="flex-1" />
@@ -153,7 +173,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </div>
         <nav className="flex items-center gap-1 overflow-x-auto px-4 pb-2.5">
-          {visibleNavItems.map((item) => (
+          {pillNavItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -165,21 +185,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </Link>
           ))}
           <div className="mx-1.5 my-1 h-4 w-px bg-slate-200" />
-          {EXTERNAL_NAV_ITEMS.map((item) => (
-            <a
-              key={item.label}
-              href={item.href}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
-            >
-              {item.label}
-              <svg className="h-3 w-3 opacity-70" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path d="M12.5 3a.75.75 0 000 1.5h2.19l-6.72 6.72a.75.75 0 101.06 1.06L15.75 5.56v2.19a.75.75 0 001.5 0v-4a.75.75 0 00-.75-.75h-4z" />
-                <path d="M4.5 5.5A1.5 1.5 0 006 4h4a.75.75 0 000-1.5H6A3 3 0 003 5.5v8A3 3 0 006 16.5h8a3 3 0 003-3v-4a.75.75 0 00-1.5 0v4a1.5 1.5 0 01-1.5 1.5H6A1.5 1.5 0 014.5 13.5v-8z" />
-              </svg>
-            </a>
-          ))}
+          {/* Menu selecionável: só abre o app escolhido em nova aba, não navega
+              dentro do próprio app -- por isso reseta pro placeholder sempre. */}
+          <select
+            value=""
+            onChange={(e) => {
+              if (e.target.value) window.open(e.target.value, "_blank", "noreferrer");
+              e.target.value = "";
+            }}
+            className="whitespace-nowrap rounded-full border-none bg-transparent px-4 py-1.5 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+          >
+            <option value="" disabled>
+              Aplicativos
+            </option>
+            {APP_NAV_ITEMS.map((item) => (
+              <option key={item.href} value={item.href}>
+                {item.label}
+              </option>
+            ))}
+          </select>
         </nav>
       </header>
       {/* max-w mais largo (era 1600px) -- o mapa de vendas tem ~46 colunas

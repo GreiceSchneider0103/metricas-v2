@@ -4,7 +4,6 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useApi } from "@/lib/auth-context";
 import type { Task, TeamMember } from "@/lib/types";
 import { StatusBadge } from "@/components/status-badge";
-import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -31,7 +30,7 @@ const PRIORITY_LABELS: Record<Task["priority"], string> = {
 
 type ListingOption = { listingId: string; externalId: string; title: string };
 
-export default function AtividadesPage() {
+export function AtividadesPanel() {
   const api = useApi();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [members, setMembers] = useState<TeamMember[]>([]);
@@ -148,8 +147,6 @@ export default function AtividadesPage() {
 
   return (
     <div className="max-w-4xl space-y-6">
-      <PageHeader title="Atividades" description="Tarefas do time para as contas e anúncios do Mercado Livre." />
-
       <Card>
         <form onSubmit={handleCreate} className="space-y-3">
           <div className="flex flex-wrap items-end gap-3">

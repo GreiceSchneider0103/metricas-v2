@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabase-client";
 import { PasswordInput } from "@/components/password-input";
 import { TeamPanel } from "@/components/settings/team-panel";
 import { IntegrationsPanel } from "@/components/settings/integrations-panel";
-import { GoalsPanel } from "@/components/settings/goals-panel";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +16,6 @@ type CompanyDetail = { id: string; name: string; slug: string; created_at: strin
 const TABS = [
   { id: "geral", label: "Geral" },
   { id: "equipe", label: "Equipe" },
-  { id: "metas", label: "Metas" },
   { id: "integracoes", label: "Integrações" }
 ] as const;
 
@@ -126,7 +124,7 @@ export default function ConfiguracoesPage() {
   // Pedido explicito: uma conta cujo acesso foi restrito so a "Configurações"
   // no todo (ex.: login compartilhado so pra conectar contas do Mercado
   // Livre) tambem so deve ver a sub-aba Integrações aqui dentro -- nao faz
-  // sentido essa pessoa enxergar Geral/Equipe/Metas.
+  // sentido essa pessoa enxergar Geral/Equipe.
   const isConfigOnlyUser =
     !isPlatformAdmin && activeCompany?.allowedTabs?.length === 1 && activeCompany.allowedTabs[0] === "configuracoes";
   const visibleTabs = isConfigOnlyUser ? TABS.filter((item) => item.id === "integracoes") : TABS;
@@ -155,7 +153,6 @@ export default function ConfiguracoesPage() {
 
       {!isConfigOnlyUser && tab === "geral" && <GeralPanel />}
       {!isConfigOnlyUser && tab === "equipe" && <TeamPanel />}
-      {!isConfigOnlyUser && tab === "metas" && <GoalsPanel />}
       {tab === "integracoes" && <IntegrationsPanel />}
     </div>
   );

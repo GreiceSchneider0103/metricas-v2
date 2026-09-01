@@ -146,7 +146,7 @@ export async function createTask(input: {
       userId: task.assigned_to,
       type: "task_assigned",
       title: `Nova tarefa atribuida: ${task.title}`,
-      link: "/atividades",
+      link: "/operacional",
       metadata: { taskId: task.id }
     });
   }
@@ -275,7 +275,7 @@ export async function updateTask(input: {
       userId: diff.assignedTo.to as string,
       type: "task_assigned",
       title: `Tarefa atribuida a voce: ${updated.title}`,
-      link: "/atividades",
+      link: "/operacional",
       metadata: { taskId: input.taskId }
     });
   }

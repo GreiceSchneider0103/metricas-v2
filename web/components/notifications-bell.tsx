@@ -100,7 +100,7 @@ export function NotificationsBell() {
               }
 
               // Link externo (ex: anuncio no Mercado Livre) abre em nova aba;
-              // link interno (ex: /atividades) navega dentro do proprio app.
+              // link interno (ex: /operacional) navega dentro do proprio app.
               if (item.link.startsWith("http")) {
                 return (
                   <a
