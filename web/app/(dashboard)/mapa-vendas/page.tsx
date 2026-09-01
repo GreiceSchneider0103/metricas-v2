@@ -50,10 +50,14 @@ function DayCell({ day }: { day: CalendarListing["days"][number] }) {
   ].join("\n");
 
   return (
-    <td className="p-0.5 text-center align-middle" title={tooltip}>
-      <div className={`relative flex h-7 w-7 items-center justify-center rounded-md text-[11px] font-medium transition-transform hover:scale-110 ${bg}`}>
-        {day.priceChange === "up" && <span className="absolute -top-1 text-[9px] text-red-600">&#9650;</span>}
-        {day.priceChange === "down" && <span className="absolute -top-1 text-[9px] text-emerald-600">&#9660;</span>}
+    <td className="p-px text-center align-middle" title={tooltip}>
+      <div className={`relative flex h-6 w-6 items-center justify-center rounded-md text-[10px] font-medium transition-transform hover:scale-110 ${bg}`}>
+        {/* Preta em vez de vermelho/verde -- essas cores sumiam em cima do
+            fundo emerald-500 (meta batida) ou red-400 (meta perdida), que
+            usam praticamente a mesma cor da seta. Preta tem contraste
+            garantido em qualquer um dos fundos possíveis da célula. */}
+        {day.priceChange === "up" && <span className="absolute -top-1 text-[8px] text-slate-900">&#9650;</span>}
+        {day.priceChange === "down" && <span className="absolute -top-1 text-[8px] text-slate-900">&#9660;</span>}
         {day.unitsSold > 0 ? day.unitsSold : ""}
       </div>
     </td>
@@ -238,30 +242,33 @@ export default function MapaVendasPage() {
         </p>
       )}
 
+      {/* Pedido explicito: caber tudo sem rolagem horizontal -- tabela bem
+          mais compacta (fonte, paddings e celulas de dia menores) do que o
+          resto do app, so aqui, porque sao ~46 colunas na mesma tela. */}
       <Card className="overflow-x-auto p-0">
-        <table className="text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+        <table className="text-xs">
+          <thead className="bg-slate-50 text-left uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="sticky left-0 z-10 border-r border-slate-200 bg-slate-50 px-4 py-2.5 font-medium">Anúncio</th>
-              <th className="px-2 py-2.5 font-medium">ABC</th>
-              <th className="px-2 py-2.5 font-medium">Status</th>
-              <th className="px-2 py-2.5 font-medium">Tipo</th>
+              <th className="sticky left-0 z-10 border-r border-slate-200 bg-slate-50 px-2 py-2 font-medium">Anúncio</th>
+              <th className="px-1 py-2 font-medium">ABC</th>
+              <th className="px-1 py-2 font-medium">Status</th>
+              <th className="px-1 py-2 font-medium">Tipo</th>
               {dayNumbers.map((day) => (
-                <th key={day} className="px-0.5 py-2.5 text-center font-normal">
+                <th key={day} className="px-0 py-2 text-center font-normal">
                   {day}
                 </th>
               ))}
-              <th className="px-2 py-2.5 text-right font-medium">Vendas</th>
-              <th className="px-2 py-2.5 text-right font-medium">Média</th>
-              <th className="px-2 py-2.5 text-right font-medium">Meta</th>
-              <th className="px-2 py-2.5 text-right font-medium">%</th>
-              <th className="px-2 py-2.5 text-right font-medium">Pedidos</th>
-              <th className="px-2 py-2.5 text-right font-medium">Visitas</th>
-              <th className="px-2 py-2.5 text-right font-medium">Receita</th>
-              <th className="px-2 py-2.5 text-right font-medium">Ticket médio</th>
-              <th className="px-2 py-2.5 text-right font-medium">Estoque</th>
-              <th className="px-2 py-2.5 text-right font-medium">Dias estoque</th>
-              <th className="px-2 py-2.5 text-center font-medium">Tend.</th>
+              <th className="px-1 py-2 text-right font-medium">Vendas</th>
+              <th className="px-1 py-2 text-right font-medium">Média</th>
+              <th className="px-1 py-2 text-right font-medium">Meta</th>
+              <th className="px-1 py-2 text-right font-medium">%</th>
+              <th className="px-1 py-2 text-right font-medium">Pedidos</th>
+              <th className="px-1 py-2 text-right font-medium">Visitas</th>
+              <th className="px-1 py-2 text-right font-medium">Receita</th>
+              <th className="px-1 py-2 text-right font-medium">Ticket médio</th>
+              <th className="px-1 py-2 text-right font-medium">Estoque</th>
+              <th className="px-1 py-2 text-right font-medium">Dias estoque</th>
+              <th className="px-1 py-2 text-center font-medium">Tend.</th>
             </tr>
           </thead>
           <tbody>
@@ -282,7 +289,7 @@ export default function MapaVendasPage() {
             {!loading &&
               data?.items.map((item) => (
                 <tr key={item.listingId} className="group border-t border-slate-100 transition-colors hover:bg-slate-50">
-                  <td className="sticky left-0 z-10 border-r border-slate-200 bg-white px-4 py-2 group-hover:bg-slate-50">
+                  <td className="sticky left-0 z-10 border-r border-slate-200 bg-white px-2 py-1.5 group-hover:bg-slate-50">
                     <div className="flex items-center gap-1.5">
                       {item.hasOpenTask && (
                         <span
@@ -293,30 +300,30 @@ export default function MapaVendasPage() {
                       <button
                         onClick={() => setSelectedListing(item)}
                         title={item.title}
-                        className="block max-w-[220px] truncate text-left font-medium text-brand-700 hover:underline"
+                        className="block max-w-[160px] truncate text-left font-medium text-brand-700 hover:underline"
                       >
                         {truncateWords(item.title, 4)}
                       </button>
                     </div>
-                    <div className="text-xs text-slate-400">
+                    <div className="text-[11px] text-slate-400">
                       {item.externalId}
                       {item.sku ? ` · SKU ${item.sku}` : ""}
                     </div>
                   </td>
-                  <td className="px-2 py-2 text-center">{item.abcCurve ?? "—"}</td>
-                  <td className="px-2 py-2">
+                  <td className="px-1 py-1.5 text-center">{item.abcCurve ?? "—"}</td>
+                  <td className="px-1 py-1.5">
                     <StatusDot value={item.status} label={LISTING_STATUS_LABELS[item.status]} />
                   </td>
-                  <td className="px-2 py-2 text-xs text-slate-600">
+                  <td className="px-1 py-1.5 text-slate-600">
                     {item.listingType ? (LISTING_TYPE_LABELS[item.listingType] ?? item.listingType) : "—"}
                   </td>
                   {item.days.map((day) => (
                     <DayCell key={day.date} day={day} />
                   ))}
-                  <td className="px-2 py-2 text-right">{item.totals.unitsSold}</td>
-                  <td className="px-2 py-2 text-right">{item.avgDailyUnits.toFixed(1)}</td>
-                  <td className="px-2 py-2 text-right">{item.goal ? item.goal.monthlyTargetUnits : "—"}</td>
-                  <td className="px-2 py-2 text-right">
+                  <td className="px-1 py-1.5 text-right">{item.totals.unitsSold}</td>
+                  <td className="px-1 py-1.5 text-right">{item.avgDailyUnits.toFixed(1)}</td>
+                  <td className="px-1 py-1.5 text-right">{item.goal ? item.goal.monthlyTargetUnits : "—"}</td>
+                  <td className="px-1 py-1.5 text-right">
                     {item.goal?.progressPercent !== null && item.goal?.progressPercent !== undefined ? (
                       <span className={item.goal.progressPercent >= 100 ? "font-medium text-emerald-600" : "text-slate-600"}>
                         {item.goal.progressPercent.toFixed(0)}%
@@ -325,13 +332,13 @@ export default function MapaVendasPage() {
                       "—"
                     )}
                   </td>
-                  <td className="px-2 py-2 text-right">{item.totals.ordersCount}</td>
-                  <td className="px-2 py-2 text-right">{item.totals.visits}</td>
-                  <td className="px-2 py-2 text-right">{currency.format(item.totals.revenue)}</td>
-                  <td className="px-2 py-2 text-right">{item.avgTicket !== null ? currency.format(item.avgTicket) : "—"}</td>
-                  <td className="px-2 py-2 text-right">{item.currentStock}</td>
-                  <td className="px-2 py-2 text-right">{item.daysOfStock !== null ? item.daysOfStock.toFixed(1) : "—"}</td>
-                  <td className={`px-2 py-2 text-center font-semibold ${TREND_COLOR[item.trend]}`}>{TREND_ICON[item.trend]}</td>
+                  <td className="px-1 py-1.5 text-right">{item.totals.ordersCount}</td>
+                  <td className="px-1 py-1.5 text-right">{item.totals.visits}</td>
+                  <td className="px-1 py-1.5 text-right">{currency.format(item.totals.revenue)}</td>
+                  <td className="px-1 py-1.5 text-right">{item.avgTicket !== null ? currency.format(item.avgTicket) : "—"}</td>
+                  <td className="px-1 py-1.5 text-right">{item.currentStock}</td>
+                  <td className="px-1 py-1.5 text-right">{item.daysOfStock !== null ? item.daysOfStock.toFixed(1) : "—"}</td>
+                  <td className={`px-1 py-1.5 text-center font-semibold ${TREND_COLOR[item.trend]}`}>{TREND_ICON[item.trend]}</td>
                 </tr>
               ))}
           </tbody>

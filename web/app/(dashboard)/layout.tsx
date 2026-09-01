@@ -182,7 +182,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           ))}
         </nav>
       </header>
-      <main className="mx-auto w-full max-w-[1600px] flex-1 overflow-y-auto p-6">{children}</main>
+      {/* max-w mais largo (era 1600px) -- o mapa de vendas tem ~46 colunas
+          (anuncio/ABC/status/tipo + ate 31 dias + 11 metricas) e precisava
+          de mais espaco horizontal pra caber sem rolagem lateral. Paginas
+          mais estreitas (Atividades, Alertas etc.) ja se auto-limitam com
+          seu proprio max-w interno, entao isso nao afeta o layout delas. */}
+      <main className="mx-auto w-full max-w-[1920px] flex-1 overflow-y-auto p-6">{children}</main>
     </div>
   );
 }
