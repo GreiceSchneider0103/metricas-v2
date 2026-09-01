@@ -32,6 +32,12 @@ const TREND_COLOR: Record<CalendarListing["trend"], string> = {
   flat: "text-slate-400"
 };
 
+const ABC_BADGE_COLOR: Record<string, string> = {
+  A: "bg-emerald-100 text-emerald-700",
+  B: "bg-amber-100 text-amber-700",
+  C: "bg-slate-100 text-slate-500"
+};
+
 function DayCell({ day }: { day: CalendarListing["days"][number] }) {
   const bg =
     day.targetStatus === "hit"
@@ -50,14 +56,17 @@ function DayCell({ day }: { day: CalendarListing["days"][number] }) {
   ].join("\n");
 
   return (
-    <td className="p-px text-center align-middle" title={tooltip}>
-      <div className={`relative flex h-6 w-6 items-center justify-center rounded-md text-[10px] font-medium transition-transform hover:scale-110 ${bg}`}>
+    <td className="p-0 text-center align-middle" title={tooltip}>
+      {/* Retangulo estreito (nao quadrado) -- "esticado" na vertical em vez
+          de largo, pra caber mais dias na largura da tela sem cortar os
+          numeros de 2 digitos. */}
+      <div className={`relative mx-auto flex h-7 w-4 items-center justify-center rounded text-[9px] font-medium transition-transform hover:scale-110 ${bg}`}>
         {/* Preta em vez de vermelho/verde -- essas cores sumiam em cima do
             fundo emerald-500 (meta batida) ou red-400 (meta perdida), que
             usam praticamente a mesma cor da seta. Preta tem contraste
             garantido em qualquer um dos fundos possíveis da célula. */}
-        {day.priceChange === "up" && <span className="absolute -top-1 text-[8px] text-slate-900">&#9650;</span>}
-        {day.priceChange === "down" && <span className="absolute -top-1 text-[8px] text-slate-900">&#9660;</span>}
+        {day.priceChange === "up" && <span className="absolute -top-1 text-[7px] text-slate-900">&#9650;</span>}
+        {day.priceChange === "down" && <span className="absolute -top-1 text-[7px] text-slate-900">&#9660;</span>}
         {day.unitsSold > 0 ? day.unitsSold : ""}
       </div>
     </td>
@@ -250,36 +259,34 @@ export default function MapaVendasPage() {
           <thead className="bg-slate-50 text-left uppercase tracking-wide text-slate-500">
             <tr>
               <th className="sticky left-0 z-10 border-r border-slate-200 bg-slate-50 px-2 py-2 font-medium">Anúncio</th>
-              <th className="px-1 py-2 font-medium">ABC</th>
               {dayNumbers.map((day) => (
                 <th key={day} className="px-0 py-2 text-center font-normal">
                   {day}
                 </th>
               ))}
-              <th className="px-1 py-2 text-right font-medium">Vendas</th>
-              <th className="px-1 py-2 text-right font-medium">Média</th>
-              <th className="px-1 py-2 text-right font-medium">Meta</th>
-              <th className="px-1 py-2 text-right font-medium">%</th>
-              <th className="px-1 py-2 text-right font-medium">Pedidos</th>
-              <th className="px-1 py-2 text-right font-medium">Visitas</th>
-              <th className="px-1 py-2 text-right font-medium">Receita</th>
-              <th className="px-1 py-2 text-right font-medium">Ticket médio</th>
-              <th className="px-1 py-2 text-right font-medium">Estoque</th>
-              <th className="px-1 py-2 text-right font-medium">Dias estoque</th>
-              <th className="px-1 py-2 text-center font-medium">Tend.</th>
+              <th className="px-0.5 py-2 text-right text-[11px] font-medium">Vendas</th>
+              <th className="px-0.5 py-2 text-right text-[11px] font-medium">Média</th>
+              <th className="px-0.5 py-2 text-right text-[11px] font-medium">Meta</th>
+              <th className="px-0.5 py-2 text-right text-[11px] font-medium">Pedidos</th>
+              <th className="px-0.5 py-2 text-right text-[11px] font-medium">Visitas</th>
+              <th className="px-0.5 py-2 text-right text-[11px] font-medium">Receita</th>
+              <th className="px-0.5 py-2 text-right text-[11px] font-medium">Ticket médio</th>
+              <th className="px-0.5 py-2 text-right text-[11px] font-medium">Estoque</th>
+              <th className="px-0.5 py-2 text-right text-[11px] font-medium">Dias estoque</th>
+              <th className="px-0.5 py-2 text-center text-[11px] font-medium">Tend.</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={dayNumbers.length + 13} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={dayNumbers.length + 11} className="px-4 py-6 text-center text-slate-400">
                   Carregando…
                 </td>
               </tr>
             )}
             {!loading && data?.items.length === 0 && (
               <tr>
-                <td colSpan={dayNumbers.length + 13} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={dayNumbers.length + 11} className="px-4 py-6 text-center text-slate-400">
                   Nenhum anúncio encontrado.
                 </td>
               </tr>
@@ -288,53 +295,60 @@ export default function MapaVendasPage() {
               data?.items.map((item) => (
                 <tr key={item.listingId} className="group border-t border-slate-100 transition-colors hover:bg-slate-50">
                   <td className="sticky left-0 z-10 border-r border-slate-200 bg-white px-2 py-1.5 group-hover:bg-slate-50">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1">
                       {item.hasOpenTask && (
                         <span
                           className="h-2 w-2 shrink-0 rounded-full bg-orange-500"
                           title="Tem atividade/tarefa em aberto vinculada"
                         />
                       )}
+                      {item.abcCurve && (
+                        <span
+                          className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm text-[9px] font-bold ${ABC_BADGE_COLOR[item.abcCurve] ?? "bg-slate-100 text-slate-500"}`}
+                          title={`Curva ${item.abcCurve}`}
+                        >
+                          {item.abcCurve}
+                        </span>
+                      )}
                       <button
                         onClick={() => setSelectedListing(item)}
                         title={item.title}
-                        className="block max-w-[160px] truncate text-left font-medium text-brand-700 hover:underline"
+                        className="block max-w-[140px] truncate text-left font-medium text-brand-700 hover:underline"
                       >
                         {truncateWords(item.title, 4)}
                       </button>
                     </div>
                     <div className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-400">
                       <StatusDot value={item.status} label={LISTING_STATUS_LABELS[item.status]} />
-                      <span className="truncate">
+                      <span
+                        className="max-w-[150px] truncate"
+                        title={`${item.externalId}${item.sku ? ` · SKU ${item.sku}` : ""}${item.listingType ? ` · ${LISTING_TYPE_LABELS[item.listingType] ?? item.listingType}` : ""}`}
+                      >
                         {item.externalId}
                         {item.sku ? ` · SKU ${item.sku}` : ""}
                         {item.listingType ? ` · ${LISTING_TYPE_LABELS[item.listingType] ?? item.listingType}` : ""}
                       </span>
                     </div>
                   </td>
-                  <td className="px-1 py-1.5 text-center">{item.abcCurve ?? "—"}</td>
                   {item.days.map((day) => (
                     <DayCell key={day.date} day={day} />
                   ))}
-                  <td className="px-1 py-1.5 text-right">{item.totals.unitsSold}</td>
-                  <td className="px-1 py-1.5 text-right">{item.avgDailyUnits.toFixed(1)}</td>
-                  <td className="px-1 py-1.5 text-right">{item.goal ? item.goal.monthlyTargetUnits : "—"}</td>
-                  <td className="px-1 py-1.5 text-right">
-                    {item.goal?.progressPercent !== null && item.goal?.progressPercent !== undefined ? (
-                      <span className={item.goal.progressPercent >= 100 ? "font-medium text-emerald-600" : "text-slate-600"}>
-                        {item.goal.progressPercent.toFixed(0)}%
-                      </span>
-                    ) : (
-                      "—"
-                    )}
+                  <td className="px-0.5 py-1.5 text-right text-[11px]">{item.totals.unitsSold}</td>
+                  <td className="px-0.5 py-1.5 text-right text-[11px]">{item.avgDailyUnits.toFixed(1)}</td>
+                  <td className="px-0.5 py-1.5 text-right text-[11px]">{item.goal ? item.goal.monthlyTargetUnits : "—"}</td>
+                  <td className="px-0.5 py-1.5 text-right text-[11px]">{item.totals.ordersCount}</td>
+                  <td className="px-0.5 py-1.5 text-right text-[11px]">{item.totals.visits}</td>
+                  <td className="px-0.5 py-1.5 text-right text-[11px]">{currency.format(item.totals.revenue)}</td>
+                  <td className="px-0.5 py-1.5 text-right text-[11px]">
+                    {item.avgTicket !== null ? currency.format(item.avgTicket) : "—"}
                   </td>
-                  <td className="px-1 py-1.5 text-right">{item.totals.ordersCount}</td>
-                  <td className="px-1 py-1.5 text-right">{item.totals.visits}</td>
-                  <td className="px-1 py-1.5 text-right">{currency.format(item.totals.revenue)}</td>
-                  <td className="px-1 py-1.5 text-right">{item.avgTicket !== null ? currency.format(item.avgTicket) : "—"}</td>
-                  <td className="px-1 py-1.5 text-right">{item.currentStock}</td>
-                  <td className="px-1 py-1.5 text-right">{item.daysOfStock !== null ? item.daysOfStock.toFixed(1) : "—"}</td>
-                  <td className={`px-1 py-1.5 text-center font-semibold ${TREND_COLOR[item.trend]}`}>{TREND_ICON[item.trend]}</td>
+                  <td className="px-0.5 py-1.5 text-right text-[11px]">{item.currentStock}</td>
+                  <td className="px-0.5 py-1.5 text-right text-[11px]">
+                    {item.daysOfStock !== null ? item.daysOfStock.toFixed(1) : "—"}
+                  </td>
+                  <td className={`px-0.5 py-1.5 text-center text-[11px] font-semibold ${TREND_COLOR[item.trend]}`}>
+                    {TREND_ICON[item.trend]}
+                  </td>
                 </tr>
               ))}
           </tbody>
