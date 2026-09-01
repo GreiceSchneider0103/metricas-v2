@@ -33,7 +33,18 @@ const envSchema = z.object({
   MERCADO_LIVRE_CLIENT_SECRET: z.string().min(1),
   MERCADO_LIVRE_REDIRECT_URI: z.string().url(),
   MERCADO_LIVRE_AUTH_BASE_URL: z.string().url().default("https://auth.mercadolivre.com.br"),
-  MERCADO_LIVRE_API_BASE_URL: z.string().url().default("https://api.mercadolibre.com")
+  MERCADO_LIVRE_API_BASE_URL: z.string().url().default("https://api.mercadolibre.com"),
+
+  // Opcionais (nao obrigatorios como os do ML): o cliente OAuth da Magalu
+  // ainda nao foi criado (precisa do IDM CLI, feito manualmente por um
+  // humano -- ver modules/integrations/magalu/README.md). Ate isso existir,
+  // a API sobe normalmente e a rota /integrations/magalu/authorize responde
+  // 503 em vez de derrubar o boot inteiro por falta de env var.
+  MAGALU_CLIENT_ID: optionalNonEmptyString,
+  MAGALU_CLIENT_SECRET: optionalNonEmptyString,
+  MAGALU_REDIRECT_URI: optionalUrl,
+  MAGALU_AUTH_BASE_URL: z.string().url().default("https://id.magalu.com"),
+  MAGALU_API_BASE_URL: z.string().url().default("https://api.magalu.com")
 });
 
 export const config = envSchema.parse(process.env);

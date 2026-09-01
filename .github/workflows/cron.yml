@@ -34,6 +34,17 @@ jobs:
           curl -sS -f -X POST "https://metricas-v2-api.onrender.com/api/v1/cron/ml-sync-all" \
             -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" --max-time 120
 
+  # Mesma coisa, canal Magalu -- fica sem efeito ate a integracao ter uma
+  # conta de verdade conectada (endpoint so processa empresas com conta
+  # Magalu status=connected).
+  magalu-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sincronizar contas Magalu
+        run: |
+          curl -sS -f -X POST "https://metricas-v2-api.onrender.com/api/v1/cron/magalu-sync-all" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" --max-time 120
+
   aggregate:
     runs-on: ubuntu-latest
     steps:

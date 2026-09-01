@@ -20,19 +20,18 @@ const CONNECT_STEPS = [
   "No topo da tela, selecione a empresa correta no menu suspenso.",
   'Clique em "Configurações" no menu.',
   'Abra a aba "Integrações" (você já está aqui).',
-  'Clique em "Conectar conta Mercado Livre" abaixo e faça login com a conta da loja.',
+  'Clique em "Conectar conta Mercado Livre" (ou Magalu) abaixo e faça login com a conta da loja.',
   "Aguarde a sincronização automática dos anúncios (roda sozinha a cada poucos minutos).",
   'Após a sincronização concluída, clique em "Carregar histórico do período" (já vem preenchido com os últimos 90 dias).'
 ];
 
 // Pedido explicito: guia passo a passo pra quem so tem acesso a essa aba
-// (conta compartilhada usada so pra conectar contas do Mercado Livre de
-// varias empresas) -- mas fica visivel pra qualquer um, e util de qualquer
-// jeito.
+// (conta compartilhada usada so pra conectar contas de varias empresas) --
+// mas fica visivel pra qualquer um, e util de qualquer jeito.
 function ConnectStepsGuide() {
   return (
     <Card>
-      <h3 className="mb-3 text-sm font-semibold text-slate-700">Como conectar uma conta do Mercado Livre</h3>
+      <h3 className="mb-3 text-sm font-semibold text-slate-700">Como conectar uma conta</h3>
       <ol className="space-y-2">
         {CONNECT_STEPS.map((step, index) => (
           <li key={step} className="flex items-start gap-2.5 text-sm text-slate-600">
@@ -57,7 +56,39 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function IntegrationsPanel() {
+type ChannelConfig = {
+  slug: "mercado-livre" | "magalu";
+  label: string;
+  connectLabel: string;
+  emptyTitle: string;
+  syncPath: string;
+  backfillOrdersPath: string;
+  // Visitas so existe pro Mercado Livre -- a API da Magalu nao tem
+  // endpoint equivalente hoje.
+  hasVisits: boolean;
+};
+
+const MERCADO_LIVRE_CONFIG: ChannelConfig = {
+  slug: "mercado-livre",
+  label: "Mercado Livre",
+  connectLabel: "Conectar conta Mercado Livre",
+  emptyTitle: "Nenhuma conta do Mercado Livre conectada ainda",
+  syncPath: "/api/v1/jobs/ml-sync",
+  backfillOrdersPath: "/api/v1/jobs/orders-backfill",
+  hasVisits: true
+};
+
+const MAGALU_CONFIG: ChannelConfig = {
+  slug: "magalu",
+  label: "Magalu",
+  connectLabel: "Conectar conta Magalu",
+  emptyTitle: "Nenhuma conta da Magalu conectada ainda",
+  syncPath: "/api/v1/jobs/magalu-sync",
+  backfillOrdersPath: "/api/v1/jobs/magalu-orders-backfill",
+  hasVisits: false
+};
+
+function IntegrationChannelCard({ channel }: { channel: ChannelConfig }) {
   const api = useApi();
   const [status, setStatus] = useState<IntegrationStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -67,21 +98,17 @@ export function IntegrationsPanel() {
   const [backfillStage, setBackfillStage] = useState<string | null>(null);
   const [backfillMessage, setBackfillMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Antes fixo no mes corrente -- meses anteriores nunca eram carregados, o
-  // que deixava qualquer comparacao com periodo anterior (e o grafico de
-  // ate 90 dias no drawer de anuncio) com dado quase vazio antes do mes
-  // atual, gerando variacoes absurdas (%) sem sentido. Agora o usuario
-  // escolhe o intervalo -- default: ultimos 90 dias, pra cobrir o que o
-  // grafico de "Evolução de vendas" pode exibir.
+  // Default: ultimos 90 dias, pra cobrir o que o grafico de "Evolução de
+  // vendas" pode exibir.
   const [backfillFrom, setBackfillFrom] = useState(isoDaysAgo(90));
   const [backfillTo, setBackfillTo] = useState(todayIso());
 
   async function loadStatus() {
     try {
-      const result = await api<IntegrationStatus>("/api/v1/integrations/mercado-livre");
+      const result = await api<IntegrationStatus>(`/api/v1/integrations/${channel.slug}`);
       setStatus(result);
     } catch {
-      setError("Não foi possível carregar o status da integração.");
+      setError(`Não foi possível carregar o status da integração com ${channel.label}.`);
     } finally {
       setLoading(false);
     }
@@ -98,10 +125,10 @@ export function IntegrationsPanel() {
     setConnecting(true);
     setError(null);
     try {
-      const result = await api<{ authorizationUrl: string }>("/api/v1/integrations/mercado-livre/authorize");
+      const result = await api<{ authorizationUrl: string }>(`/api/v1/integrations/${channel.slug}/authorize`);
       window.location.href = result.authorizationUrl;
-    } catch {
-      setError("Não foi possível gerar o link de autorização do Mercado Livre.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `Não foi possível gerar o link de autorização (${channel.label}).`);
       setConnecting(false);
     }
   }
@@ -110,7 +137,7 @@ export function IntegrationsPanel() {
     setSyncing(true);
     setError(null);
     try {
-      await api("/api/v1/jobs/ml-sync", { method: "POST" });
+      await api(channel.syncPath, { method: "POST" });
       await loadStatus();
     } catch {
       setError("Falha ao disparar a sincronização.");
@@ -121,18 +148,14 @@ export function IntegrationsPanel() {
 
   // Carga retroativa completa de um periodo escolhido: pedidos -> agregacao
   // diaria (listing_daily_snapshot, que e o que o mapa de vendas/graficos
-  // realmente leem) -> visitas. Antes esse ultimo passo do meio nao existia
-  // aqui -- so orders-backfill e visits-backfill eram chamados, entao pedidos
-  // de meses antigos ficavam gravados mas NUNCA agregados, e o mapa de
-  // vendas/comparacao de periodo continuavam vazios pra esses meses mesmo
-  // depois de "carregar o histórico".
+  // realmente leem) -> visitas (so Mercado Livre).
   async function handleBackfillHistory() {
     setBackfilling(true);
     setBackfillMessage(null);
     setError(null);
     try {
       setBackfillStage("Carregando pedidos…");
-      const orders = await api<{ ordersUpserted: number; orderItemsUpserted: number }>("/api/v1/jobs/orders-backfill", {
+      const orders = await api<{ ordersUpserted: number; orderItemsUpserted: number }>(channel.backfillOrdersPath, {
         method: "POST",
         body: { from: backfillFrom, to: backfillTo }
       });
@@ -141,14 +164,16 @@ export function IntegrationsPanel() {
         method: "POST",
         body: { from: backfillFrom, to: backfillTo }
       });
-      setBackfillStage("Carregando visitas…");
-      const visits = await api<{ listingsUpdated: number }>("/api/v1/jobs/visits-backfill", {
-        method: "POST",
-        body: { from: backfillFrom, to: backfillTo }
-      });
-      setBackfillMessage(
-        `Período carregado: ${orders.ordersUpserted} pedidos, ${orders.orderItemsUpserted} itens, ${visits.listingsUpdated} atualizações de visitas.`
-      );
+      let visitsSuffix = "";
+      if (channel.hasVisits) {
+        setBackfillStage("Carregando visitas…");
+        const visits = await api<{ listingsUpdated: number }>("/api/v1/jobs/visits-backfill", {
+          method: "POST",
+          body: { from: backfillFrom, to: backfillTo }
+        });
+        visitsSuffix = `, ${visits.listingsUpdated} atualizações de visitas`;
+      }
+      setBackfillMessage(`Período carregado: ${orders.ordersUpserted} pedidos, ${orders.orderItemsUpserted} itens${visitsSuffix}.`);
     } catch {
       setError("Falha ao carregar o histórico do período. Algumas etapas podem ter sido concluídas -- tente de novo.");
     } finally {
@@ -158,38 +183,22 @@ export function IntegrationsPanel() {
   }
 
   return (
-    <div className="space-y-6">
-      <ConnectStepsGuide />
-
-      {/* Dois cards fixos -- sempre os dois visiveis, independente do canal
-          selecionado no topo (Mercado Livre/Magalu). Magalu ainda nao tem
-          integracao de verdade no backend (endpoints em levantamento), fica
-          em standby ate isso ser definido. */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Card className="flex flex-col items-start gap-2">
-          <h3 className="text-sm font-semibold text-slate-700">Mercado Livre</h3>
-          <p className="text-xs text-slate-500">Conecte a conta da loja pra sincronizar anúncios, pedidos e visitas.</p>
-          <Button onClick={handleConnect} disabled={connecting} size="sm">
-            {connecting ? "Gerando link…" : "Conectar conta Mercado Livre"}
-          </Button>
-        </Card>
-        <Card className="flex flex-col items-start gap-2 opacity-70">
-          <h3 className="text-sm font-semibold text-slate-700">Magalu</h3>
-          <p className="text-xs text-slate-500">Integração em desenvolvimento -- em breve.</p>
-          <Button size="sm" disabled>
-            Conectar conta Magalu
-          </Button>
-        </Card>
-      </div>
+    <div className="space-y-3">
+      <Card className="flex flex-wrap items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold text-slate-700">{channel.label}</h3>
+        <Button onClick={handleConnect} disabled={connecting} size="sm">
+          {connecting ? "Gerando link…" : channel.connectLabel}
+        </Button>
+      </Card>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {loading ? (
         <p className="text-sm text-slate-400">Carregando…</p>
       ) : !status || status.accounts.length === 0 ? (
-        <EmptyState title="Nenhuma conta do Mercado Livre conectada ainda" hint="Conecte uma conta para começar a sincronizar." />
+        <EmptyState title={channel.emptyTitle} hint="Conecte uma conta para começar a sincronizar." />
       ) : (
-        <div className="space-y-3">
+        <>
           <Card className="flex flex-wrap items-end justify-between gap-3">
             <div className="flex flex-wrap items-end gap-3">
               <div>
@@ -208,7 +217,7 @@ export function IntegrationsPanel() {
                 disabled={backfilling}
                 title="Busca pedidos, recalcula métricas diárias e busca visitas do período -- pode demorar alguns minutos"
               >
-                {backfilling ? backfillStage ?? "Carregando…" : "Carregar histórico do período"}
+                {backfilling ? (backfillStage ?? "Carregando…") : "Carregar histórico do período"}
               </Button>
             </div>
             <button onClick={handleSync} disabled={syncing} className="text-sm font-medium text-brand-600 hover:underline disabled:opacity-60">
@@ -242,8 +251,20 @@ export function IntegrationsPanel() {
               </tbody>
             </table>
           </Card>
-        </div>
+        </>
       )}
+    </div>
+  );
+}
+
+export function IntegrationsPanel() {
+  return (
+    <div className="space-y-6">
+      <ConnectStepsGuide />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <IntegrationChannelCard channel={MERCADO_LIVRE_CONFIG} />
+        <IntegrationChannelCard channel={MAGALU_CONFIG} />
+      </div>
     </div>
   );
 }
