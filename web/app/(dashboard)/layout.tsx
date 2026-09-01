@@ -188,15 +188,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </Link>
           ))}
           <div className="mx-1.5 my-1 h-4 w-px bg-slate-200" />
-          {/* Menu selecionável: só abre o app escolhido em nova aba, não navega
-              dentro do próprio app. */}
-          <HeaderMenu label="Aplicativos" className="rounded-full px-4 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700">
-            {APP_NAV_ITEMS.map((item) => (
-              <HeaderMenuItem key={item.href} onClick={() => window.open(item.href, "_blank", "noreferrer")}>
-                {item.label}
-              </HeaderMenuItem>
-            ))}
-          </HeaderMenu>
+          {APP_NAV_ITEMS.map((item) => (
+            <a
+              key={item.href}
+              href={item.href}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+            >
+              {item.label}
+              <svg className="h-3 w-3 opacity-70" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path d="M12.5 3a.75.75 0 000 1.5h2.19l-6.72 6.72a.75.75 0 101.06 1.06L15.75 5.56v2.19a.75.75 0 001.5 0v-4a.75.75 0 00-.75-.75h-4z" />
+                <path d="M4.5 5.5A1.5 1.5 0 006 4h4a.75.75 0 000-1.5H6A3 3 0 003 5.5v8A3 3 0 006 16.5h8a3 3 0 003-3v-4a.75.75 0 00-1.5 0v4a1.5 1.5 0 01-1.5 1.5H6A1.5 1.5 0 014.5 13.5v-8z" />
+              </svg>
+            </a>
+          ))}
         </nav>
       </header>
       {/* max-w mais largo (era 1600px) -- o mapa de vendas tem ~46 colunas
