@@ -7,7 +7,7 @@ import type { CalendarListing, LinkedListing, ListingTimeseriesResponse, TeamMem
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { fieldInput } from "@/lib/ui";
-import { LISTING_STATUS_LABELS } from "@/lib/labels";
+import { LISTING_STATUS_LABELS, LISTING_TYPE_LABELS } from "@/lib/labels";
 
 function lastDayOfMonth(month: string) {
   const [year, monthNumber] = month.split("-").map(Number);
@@ -177,6 +177,9 @@ export function ListingDrawer({
 
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <StatusBadge value={listing.status} label={LISTING_STATUS_LABELS[listing.status]} />
+          {listing.listingType && (
+            <StatusBadge value={listing.listingType} label={LISTING_TYPE_LABELS[listing.listingType] ?? listing.listingType} />
+          )}
           {listing.abcCurve && <StatusBadge value={`Curva ${listing.abcCurve}`} />}
           {listing.permalink && (
             <a href={listing.permalink} target="_blank" rel="noreferrer" className="text-xs font-medium text-brand-600 hover:underline">
