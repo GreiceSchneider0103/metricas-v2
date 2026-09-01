@@ -147,34 +147,172 @@ export function GoalsPanel() {
         {loading && <p className="text-sm text-slate-400">Carregando…</p>}
         {!loading && goals.length === 0 && <EmptyState title="Nenhuma meta cadastrada" hint="Crie a primeira meta acima." />}
         {!loading &&
-          goals.map((goal) => {
-            const progress = progressByGoal[goal.id];
-            const percent = progress?.progressPercent ?? 0;
-            return (
-              <Card key={goal.id}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-slate-800">{goal.name}</p>
-                    <p className="text-xs text-slate-400">
-                      {METRIC_LABELS[goal.metricCode]} · {goal.periodStart} a {goal.periodEnd}
-                    </p>
-                  </div>
-                  <StatusBadge value={goal.status} label={GOAL_STATUS_LABELS[goal.status]} />
-                </div>
-                {progress && (
-                  <div className="mt-3">
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                      <div className="h-full rounded-full bg-brand-500 transition-all" style={{ width: `${Math.min(100, percent)}%` }} />
-                    </div>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {progress.achievedValue.toLocaleString("pt-BR")} / {progress.targetValue.toLocaleString("pt-BR")} ({percent.toFixed(0)}%)
-                    </p>
-                  </div>
-                )}
-              </Card>
-            );
-          })}
+          goals.map((goal) => (
+            <GoalCard key={goal.id} goal={goal} progress={progressByGoal[goal.id]} canManage={canManage} onChanged={loadGoals} />
+          ))}
       </div>
     </div>
+  );
+}
+
+// Edicao e exclusao de uma meta ja criada -- o form do topo so cria. Pedido
+// explicito do usuario ("editar, excluir"), backend ja suportava os dois
+// (PATCH e DELETE /goals/:id), so faltava a UI.
+function GoalCard({
+  goal,
+  progress,
+  canManage,
+  onChanged
+}: {
+  goal: Goal;
+  progress?: GoalProgress;
+  canManage: boolean;
+  onChanged: () => void;
+}) {
+  const api = useApi();
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(goal.name);
+  const [targetValue, setTargetValue] = useState(String(goal.targetValue));
+  const [periodStart, setPeriodStart] = useState(goal.periodStart);
+  const [periodEnd, setPeriodEnd] = useState(goal.periodEnd);
+  const [status, setStatus] = useState<Goal["status"]>(goal.status);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const percent = progress?.progressPercent ?? 0;
+
+  function startEditing() {
+    setName(goal.name);
+    setTargetValue(String(goal.targetValue));
+    setPeriodStart(goal.periodStart);
+    setPeriodEnd(goal.periodEnd);
+    setStatus(goal.status);
+    setError(null);
+    setEditing(true);
+  }
+
+  async function handleSave(event: FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      await api(`/api/v1/goals/${goal.id}`, {
+        method: "PATCH",
+        body: { name, targetValue: Number(targetValue), periodStart, periodEnd, status }
+      });
+      setEditing(false);
+      onChanged();
+    } catch {
+      setError("Não foi possível salvar as alterações.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!window.confirm(`Excluir a meta "${goal.name}"? Essa ação não pode ser desfeita.`)) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await api(`/api/v1/goals/${goal.id}`, { method: "DELETE" });
+      onChanged();
+    } catch {
+      setError("Não foi possível excluir essa meta.");
+      setDeleting(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <Card as="form" onSubmit={handleSave} className="space-y-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-[180px] flex-1">
+            <label className={fieldLabel}>Nome</label>
+            <input required value={name} onChange={(e) => setName(e.target.value)} className={fieldInput} />
+          </div>
+          <div>
+            <label className={fieldLabel}>Meta</label>
+            <input
+              required
+              type="number"
+              min="0"
+              step="0.01"
+              value={targetValue}
+              onChange={(e) => setTargetValue(e.target.value)}
+              className={`w-28 ${fieldInput}`}
+            />
+          </div>
+          <div>
+            <label className={fieldLabel}>Início</label>
+            <input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} className={fieldInput} />
+          </div>
+          <div>
+            <label className={fieldLabel}>Fim</label>
+            <input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} className={fieldInput} />
+          </div>
+          <div>
+            <label className={fieldLabel}>Status</label>
+            <select value={status} onChange={(e) => setStatus(e.target.value as Goal["status"])} className={fieldInput}>
+              {Object.entries(GOAL_STATUS_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        {error && <p className="text-xs text-red-600">{error}</p>}
+        <div className="flex gap-2">
+          <Button type="submit" size="sm" disabled={saving}>
+            {saving ? "Salvando…" : "Salvar"}
+          </Button>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(false)}>
+            Cancelar
+          </Button>
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="font-medium text-slate-800">{goal.name}</p>
+          <p className="text-xs text-slate-400">
+            {METRIC_LABELS[goal.metricCode]} · {goal.periodStart} a {goal.periodEnd}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <StatusBadge value={goal.status} label={GOAL_STATUS_LABELS[goal.status]} />
+          {canManage && (
+            <>
+              <button onClick={startEditing} className="text-xs font-medium text-brand-600 hover:underline">
+                Editar
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="text-xs font-medium text-red-600 hover:underline disabled:opacity-60"
+              >
+                {deleting ? "Excluindo…" : "Excluir"}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+      {progress && (
+        <div className="mt-3">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+            <div className="h-full rounded-full bg-brand-500 transition-all" style={{ width: `${Math.min(100, percent)}%` }} />
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            {progress.achievedValue.toLocaleString("pt-BR")} / {progress.targetValue.toLocaleString("pt-BR")} ({percent.toFixed(0)}%)
+          </p>
+        </div>
+      )}
+      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+    </Card>
   );
 }

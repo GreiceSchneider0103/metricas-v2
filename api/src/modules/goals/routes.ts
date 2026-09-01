@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { assertAdmOrMaster, assertTabAllowed, getAuthContext } from "../../plugins/auth.js";
-import { createGoal, getGoalById, getGoalProgress, listGoals, updateGoal } from "./service.js";
+import { createGoal, deleteGoal, getGoalById, getGoalProgress, listGoals, updateGoal } from "./service.js";
 
 const metricCodeEnum = z.enum(["revenue", "units_sold", "orders_count", "visits"]);
 const goalStatusEnum = z.enum(["active", "achieved", "missed", "cancelled"]);
@@ -88,5 +88,14 @@ export async function goalRoutes(app: FastifyInstance) {
     const params = goalIdParamsSchema.parse(request.params);
     const body = updateBodySchema.parse(request.body ?? {});
     return updateGoal({ companyId: context.companyId, goalId: params.goalId, changes: body });
+  });
+
+  app.delete("/goals/:goalId", async (request, reply) => {
+    const context = await getAuthContext(request);
+    assertTabAllowed(request, context, ["mapa_vendas", "configuracoes"]);
+    assertAdmOrMaster(request, context);
+    const params = goalIdParamsSchema.parse(request.params);
+    await deleteGoal(context.companyId, params.goalId);
+    return reply.code(204).send();
   });
 }

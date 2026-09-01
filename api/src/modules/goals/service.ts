@@ -160,6 +160,17 @@ export async function updateGoal(input: {
   return mapGoal(updated);
 }
 
+// Ao contrario de tasks/alerts, metas nao tem historico de auditoria
+// (comments/history) vinculado -- exclusao de verdade e segura aqui, sem
+// perder rastro nenhum. Pedido explicito do usuario ("editar, excluir").
+export async function deleteGoal(companyId: string, goalId: string) {
+  const result = await supabaseAdmin.from("goals").delete().eq("company_id", companyId).eq("id", goalId).select("id").maybeSingle();
+  if (result.error) {
+    throw new Error(`Falha ao excluir meta: ${result.error.message}`);
+  }
+  if (!result.data) throw new Error("Meta nao encontrada");
+}
+
 const METRIC_COLUMN: Record<GoalMetricCode, string> = {
   revenue: "revenue",
   units_sold: "units_sold",
