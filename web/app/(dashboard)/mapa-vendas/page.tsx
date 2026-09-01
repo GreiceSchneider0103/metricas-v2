@@ -251,8 +251,6 @@ export default function MapaVendasPage() {
             <tr>
               <th className="sticky left-0 z-10 border-r border-slate-200 bg-slate-50 px-2 py-2 font-medium">Anúncio</th>
               <th className="px-1 py-2 font-medium">ABC</th>
-              <th className="px-1 py-2 font-medium">Status</th>
-              <th className="px-1 py-2 font-medium">Tipo</th>
               {dayNumbers.map((day) => (
                 <th key={day} className="px-0 py-2 text-center font-normal">
                   {day}
@@ -274,14 +272,14 @@ export default function MapaVendasPage() {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={dayNumbers.length + 15} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={dayNumbers.length + 13} className="px-4 py-6 text-center text-slate-400">
                   Carregando…
                 </td>
               </tr>
             )}
             {!loading && data?.items.length === 0 && (
               <tr>
-                <td colSpan={dayNumbers.length + 15} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={dayNumbers.length + 13} className="px-4 py-6 text-center text-slate-400">
                   Nenhum anúncio encontrado.
                 </td>
               </tr>
@@ -305,18 +303,16 @@ export default function MapaVendasPage() {
                         {truncateWords(item.title, 4)}
                       </button>
                     </div>
-                    <div className="text-[11px] text-slate-400">
-                      {item.externalId}
-                      {item.sku ? ` · SKU ${item.sku}` : ""}
+                    <div className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-400">
+                      <StatusDot value={item.status} label={LISTING_STATUS_LABELS[item.status]} />
+                      <span className="truncate">
+                        {item.externalId}
+                        {item.sku ? ` · SKU ${item.sku}` : ""}
+                        {item.listingType ? ` · ${LISTING_TYPE_LABELS[item.listingType] ?? item.listingType}` : ""}
+                      </span>
                     </div>
                   </td>
                   <td className="px-1 py-1.5 text-center">{item.abcCurve ?? "—"}</td>
-                  <td className="px-1 py-1.5">
-                    <StatusDot value={item.status} label={LISTING_STATUS_LABELS[item.status]} />
-                  </td>
-                  <td className="px-1 py-1.5 text-slate-600">
-                    {item.listingType ? (LISTING_TYPE_LABELS[item.listingType] ?? item.listingType) : "—"}
-                  </td>
                   {item.days.map((day) => (
                     <DayCell key={day.date} day={day} />
                   ))}
