@@ -105,6 +105,7 @@ export type CalendarListing = {
   hasPromotion: boolean;
   sku: string | null;
   currentStock: number;
+  hasOpenTask: boolean;
   days: CalendarDay[];
   totals: { unitsSold: number; revenue: number; ordersCount: number; visits: number };
   avgTicket: number | null;
