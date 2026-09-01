@@ -56,17 +56,17 @@ function DayCell({ day }: { day: CalendarListing["days"][number] }) {
   ].join("\n");
 
   return (
-    <td className="p-0 text-center align-middle" title={tooltip}>
-      {/* Retangulo estreito (nao quadrado) -- "esticado" na vertical em vez
-          de largo, pra caber mais dias na largura da tela sem cortar os
-          numeros de 2 digitos. */}
-      <div className={`relative mx-auto flex h-7 w-4 items-center justify-center rounded text-[9px] font-medium transition-transform hover:scale-110 ${bg}`}>
+    <td className="p-px text-center align-middle" title={tooltip}>
+      {/* Retangulo (nao quadrado) -- um pouco mais estreito que alto, pra
+          caber mais dias na largura sem ficar ilegivel. A primeira versao
+          (16px de largura) ficou "espremida" demais -- este e o meio-termo. */}
+      <div className={`relative mx-auto flex h-6 w-5 items-center justify-center rounded text-[10px] font-medium transition-transform hover:scale-110 ${bg}`}>
         {/* Preta em vez de vermelho/verde -- essas cores sumiam em cima do
             fundo emerald-500 (meta batida) ou red-400 (meta perdida), que
             usam praticamente a mesma cor da seta. Preta tem contraste
             garantido em qualquer um dos fundos possíveis da célula. */}
-        {day.priceChange === "up" && <span className="absolute -top-1 text-[7px] text-slate-900">&#9650;</span>}
-        {day.priceChange === "down" && <span className="absolute -top-1 text-[7px] text-slate-900">&#9660;</span>}
+        {day.priceChange === "up" && <span className="absolute -top-1 text-[8px] text-slate-900">&#9650;</span>}
+        {day.priceChange === "down" && <span className="absolute -top-1 text-[8px] text-slate-900">&#9660;</span>}
         {day.unitsSold > 0 ? day.unitsSold : ""}
       </div>
     </td>
@@ -264,16 +264,16 @@ export default function MapaVendasPage() {
                   {day}
                 </th>
               ))}
-              <th className="px-0.5 py-2 text-right text-[11px] font-medium">Vendas</th>
-              <th className="px-0.5 py-2 text-right text-[11px] font-medium">Média</th>
-              <th className="px-0.5 py-2 text-right text-[11px] font-medium">Meta</th>
-              <th className="px-0.5 py-2 text-right text-[11px] font-medium">Pedidos</th>
-              <th className="px-0.5 py-2 text-right text-[11px] font-medium">Visitas</th>
-              <th className="px-0.5 py-2 text-right text-[11px] font-medium">Receita</th>
-              <th className="px-0.5 py-2 text-right text-[11px] font-medium">Ticket médio</th>
-              <th className="px-0.5 py-2 text-right text-[11px] font-medium">Estoque</th>
-              <th className="px-0.5 py-2 text-right text-[11px] font-medium">Dias estoque</th>
-              <th className="px-0.5 py-2 text-center text-[11px] font-medium">Tend.</th>
+              <th className="px-1 py-2 text-right font-medium">Vendas</th>
+              <th className="px-1 py-2 text-right font-medium">Média</th>
+              <th className="px-1 py-2 text-right font-medium">Meta</th>
+              <th className="px-1 py-2 text-right font-medium">Pedidos</th>
+              <th className="px-1 py-2 text-right font-medium">Visitas</th>
+              <th className="px-1 py-2 text-right font-medium">Receita</th>
+              <th className="px-1 py-2 text-right font-medium">Ticket médio</th>
+              <th className="px-1 py-2 text-right font-medium">Estoque</th>
+              <th className="px-1 py-2 text-right font-medium">Dias estoque</th>
+              <th className="px-1 py-2 text-center font-medium">Tend.</th>
             </tr>
           </thead>
           <tbody>
@@ -333,20 +333,16 @@ export default function MapaVendasPage() {
                   {item.days.map((day) => (
                     <DayCell key={day.date} day={day} />
                   ))}
-                  <td className="px-0.5 py-1.5 text-right text-[11px]">{item.totals.unitsSold}</td>
-                  <td className="px-0.5 py-1.5 text-right text-[11px]">{item.avgDailyUnits.toFixed(1)}</td>
-                  <td className="px-0.5 py-1.5 text-right text-[11px]">{item.goal ? item.goal.monthlyTargetUnits : "—"}</td>
-                  <td className="px-0.5 py-1.5 text-right text-[11px]">{item.totals.ordersCount}</td>
-                  <td className="px-0.5 py-1.5 text-right text-[11px]">{item.totals.visits}</td>
-                  <td className="px-0.5 py-1.5 text-right text-[11px]">{currency.format(item.totals.revenue)}</td>
-                  <td className="px-0.5 py-1.5 text-right text-[11px]">
-                    {item.avgTicket !== null ? currency.format(item.avgTicket) : "—"}
-                  </td>
-                  <td className="px-0.5 py-1.5 text-right text-[11px]">{item.currentStock}</td>
-                  <td className="px-0.5 py-1.5 text-right text-[11px]">
-                    {item.daysOfStock !== null ? item.daysOfStock.toFixed(1) : "—"}
-                  </td>
-                  <td className={`px-0.5 py-1.5 text-center text-[11px] font-semibold ${TREND_COLOR[item.trend]}`}>
+                  <td className="px-1 py-1.5 text-right">{item.totals.unitsSold}</td>
+                  <td className="px-1 py-1.5 text-right">{item.avgDailyUnits.toFixed(1)}</td>
+                  <td className="px-1 py-1.5 text-right">{item.goal ? item.goal.monthlyTargetUnits : "—"}</td>
+                  <td className="px-1 py-1.5 text-right">{item.totals.ordersCount}</td>
+                  <td className="px-1 py-1.5 text-right">{item.totals.visits}</td>
+                  <td className="px-1 py-1.5 text-right">{currency.format(item.totals.revenue)}</td>
+                  <td className="px-1 py-1.5 text-right">{item.avgTicket !== null ? currency.format(item.avgTicket) : "—"}</td>
+                  <td className="px-1 py-1.5 text-right">{item.currentStock}</td>
+                  <td className="px-1 py-1.5 text-right">{item.daysOfStock !== null ? item.daysOfStock.toFixed(1) : "—"}</td>
+                  <td className={`px-1 py-1.5 text-center font-semibold ${TREND_COLOR[item.trend]}`}>
                     {TREND_ICON[item.trend]}
                   </td>
                 </tr>
