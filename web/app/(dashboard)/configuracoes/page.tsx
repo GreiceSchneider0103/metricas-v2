@@ -120,14 +120,27 @@ function ChangePasswordCard() {
 }
 
 export default function ConfiguracoesPage() {
+  const { activeCompany, isPlatformAdmin } = useAuth();
   const [tab, setTab] = useState<TabId>("geral");
+
+  // Pedido explicito: uma conta cujo acesso foi restrito so a "Configurações"
+  // no todo (ex.: login compartilhado so pra conectar contas do Mercado
+  // Livre) tambem so deve ver a sub-aba Integrações aqui dentro -- nao faz
+  // sentido essa pessoa enxergar Geral/Equipe/Metas.
+  const isConfigOnlyUser =
+    !isPlatformAdmin && activeCompany?.allowedTabs?.length === 1 && activeCompany.allowedTabs[0] === "configuracoes";
+  const visibleTabs = isConfigOnlyUser ? TABS.filter((item) => item.id === "integracoes") : TABS;
+
+  useEffect(() => {
+    if (isConfigOnlyUser && tab !== "integracoes") setTab("integracoes");
+  }, [isConfigOnlyUser, tab]);
 
   return (
     <div className="space-y-6">
       <PageHeader title="Configurações" />
 
       <div className="flex gap-1 border-b border-slate-200">
-        {TABS.map((item) => (
+        {visibleTabs.map((item) => (
           <button
             key={item.id}
             onClick={() => setTab(item.id)}
@@ -140,9 +153,9 @@ export default function ConfiguracoesPage() {
         ))}
       </div>
 
-      {tab === "geral" && <GeralPanel />}
-      {tab === "equipe" && <TeamPanel />}
-      {tab === "metas" && <GoalsPanel />}
+      {!isConfigOnlyUser && tab === "geral" && <GeralPanel />}
+      {!isConfigOnlyUser && tab === "equipe" && <TeamPanel />}
+      {!isConfigOnlyUser && tab === "metas" && <GoalsPanel />}
       {tab === "integracoes" && <IntegrationsPanel />}
     </div>
   );
