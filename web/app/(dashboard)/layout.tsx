@@ -132,8 +132,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="flex items-center justify-between gap-4 px-6 py-3">
           <div className="flex items-center gap-2.5">
-            <Logo className="h-8 w-8" />
-            <span className="hidden text-base font-semibold tracking-tight text-slate-900 sm:inline">Go Metriks</span>
+            <Link href="/mapa-vendas" className="flex items-center gap-2.5 transition-opacity hover:opacity-75">
+              <Logo className="h-8 w-8" />
+              <span className="hidden text-base font-semibold tracking-tight text-slate-900 sm:inline">Go Metriks</span>
+            </Link>
             {showChannelSelector && (
               <select
                 value="meli"
