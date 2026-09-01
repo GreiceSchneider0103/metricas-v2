@@ -371,6 +371,32 @@ async function fetchActiveUnitGoals(companyId: string, listingIds: string[], mon
   return goals;
 }
 
+// Pedido explicito: uma bolinha no mapa de vendas indicando quais anuncios
+// tem tarefa/atividade vinculada em aberto (Atividades le related_listing_id
+// de tasks). So conta status "aberto" (todo/in_progress/waiting) -- uma
+// tarefa ja concluida ou cancelada nao precisa mais chamar atencao aqui.
+const OPEN_TASK_STATUSES = ["todo", "in_progress", "waiting"];
+
+async function fetchListingIdsWithOpenTasks(companyId: string, listingIds: string[]) {
+  const withOpenTask = new Set<string>();
+  if (listingIds.length === 0) return withOpenTask;
+
+  for (const batch of chunk(listingIds, 200)) {
+    const rows = await fetchAllPages<{ related_listing_id: string }>((from, to) =>
+      supabaseAdmin
+        .from("tasks")
+        .select("related_listing_id")
+        .eq("company_id", companyId)
+        .in("related_listing_id", batch)
+        .in("status", OPEN_TASK_STATUSES)
+        .range(from, to)
+    );
+    for (const row of rows) withOpenTask.add(row.related_listing_id);
+  }
+
+  return withOpenTask;
+}
+
 const ABC_RANK: Record<string, number> = { A: 0, B: 1, C: 2 };
 function abcRank(curve: string | null) {
   return curve && curve in ABC_RANK ? ABC_RANK[curve] : 3;
@@ -392,9 +418,10 @@ export async function getSalesMapCalendar(input: {
   const listings = await fetchFilteredListings(input.companyId, input.filters);
   const listingIds = listings.map((listing) => listing.id);
 
-  const [snapshotRows, goalsByListing] = await Promise.all([
+  const [snapshotRows, goalsByListing, listingIdsWithOpenTask] = await Promise.all([
     fetchCalendarSnapshots(input.companyId, listingIds, monthStart, monthEnd),
-    fetchActiveUnitGoals(input.companyId, listingIds, monthStart, monthEnd)
+    fetchActiveUnitGoals(input.companyId, listingIds, monthStart, monthEnd),
+    fetchListingIdsWithOpenTasks(input.companyId, listingIds)
   ]);
 
   const snapshotsByListing = new Map<string, Map<string, CalendarSnapshotRow>>();
@@ -470,6 +497,7 @@ export async function getSalesMapCalendar(input: {
       hasPromotion: listing.has_promotion,
       sku: extractSku(listing.attributes),
       currentStock: listing.available_quantity ?? 0,
+      hasOpenTask: listingIdsWithOpenTask.has(listing.id),
       days,
       totals: { unitsSold: unitsTotal, revenue: revenueTotal, ordersCount: ordersTotal, visits: visitsTotal },
       avgTicket: ordersTotal > 0 ? revenueTotal / ordersTotal : null,
