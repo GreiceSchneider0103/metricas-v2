@@ -267,14 +267,14 @@ export default function MapaVendasPage() {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={dayNumbers.length + 14} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={dayNumbers.length + 15} className="px-4 py-6 text-center text-slate-400">
                   Carregando…
                 </td>
               </tr>
             )}
             {!loading && data?.items.length === 0 && (
               <tr>
-                <td colSpan={dayNumbers.length + 14} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={dayNumbers.length + 15} className="px-4 py-6 text-center text-slate-400">
                   Nenhum anúncio encontrado.
                 </td>
               </tr>

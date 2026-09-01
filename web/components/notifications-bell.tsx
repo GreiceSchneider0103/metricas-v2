@@ -31,9 +31,13 @@ export function NotificationsBell() {
   }
 
   async function handleMarkAllRead() {
-    await api("/api/v1/notifications/read-all", { method: "PATCH" });
-    setItems((current) => current.map((item) => ({ ...item, isRead: true })));
-    setUnreadCount(0);
+    try {
+      await api("/api/v1/notifications/read-all", { method: "PATCH" });
+      setItems((current) => current.map((item) => ({ ...item, isRead: true })));
+      setUnreadCount(0);
+    } catch {
+      // silencioso -- o sino continua clicável, só não marcam como lidas
+    }
   }
 
   return (

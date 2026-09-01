@@ -5,8 +5,10 @@ import { assertAdmOrMaster, assertTabAllowed, getAuthContext } from "../../../pl
 import { getAuthorizationUrl, getIntegrationStatus, handleOAuthCallback } from "./service.js";
 
 function callbackHtml(status: "success" | "error", message: string) {
+  // A rota do frontend e /configuracoes (aba "Integrações" por dentro dela)
+  // -- nao existe /integracoes como pagina propria. Esse link ficava 404.
   const returnUrl = status === "success" && config.APP_WEB_URL
-    ? `${config.APP_WEB_URL.replace(/\/+$/, "")}/integracoes`
+    ? `${config.APP_WEB_URL.replace(/\/+$/, "")}/configuracoes`
     : null;
 
   return `<!DOCTYPE html>
