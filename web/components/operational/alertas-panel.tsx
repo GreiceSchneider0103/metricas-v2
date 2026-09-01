@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useApi, useAuth } from "@/lib/auth-context";
 import type { Alert } from "@/lib/types";
 import { StatusBadge } from "@/components/status-badge";
-import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ALERT_CODE_LABELS } from "@/lib/labels";
@@ -31,7 +30,7 @@ const ALERT_STATUS_LABELS: Record<Alert["status"], string> = {
   muted: "Silenciado"
 };
 
-export default function AlertasPage() {
+export function AlertasPanel() {
   const api = useApi();
   const { activeCompany } = useAuth();
   const canManage = activeCompany?.role === "master" || activeCompany?.role === "adm";
@@ -89,8 +88,6 @@ export default function AlertasPage() {
 
   return (
     <div className="max-w-4xl space-y-6">
-      <PageHeader title="Alertas" description="Sinais automáticos sobre os seus anúncios que precisam de atenção." />
-
       <div className="flex items-center gap-1 text-sm">
         {STATUS_FILTERS.map((option) => (
           <button

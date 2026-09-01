@@ -3,9 +3,9 @@ export type CompanyRole = "master" | "adm" | "agente";
 export type AppTab = "mapa_vendas" | "atividades" | "alertas" | "configuracoes";
 
 export const APP_TAB_LABELS: Record<AppTab, string> = {
-  mapa_vendas: "Mapa de vendas",
-  atividades: "Atividades",
-  alertas: "Alertas",
+  mapa_vendas: "Mercado Livre (Mapa de vendas)",
+  atividades: "Atividades (Operacional)",
+  alertas: "Alertas (Operacional)",
   configuracoes: "Configurações"
 };
 

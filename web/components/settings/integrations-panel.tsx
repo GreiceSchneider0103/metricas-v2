@@ -22,7 +22,7 @@ const CONNECT_STEPS = [
   'Abra a aba "Integrações" (você já está aqui).',
   'Clique em "Conectar conta Mercado Livre" abaixo e faça login com a conta da loja.',
   "Aguarde a sincronização automática dos anúncios (roda sozinha a cada poucos minutos).",
-  'Se precisar do histórico de meses anteriores, use "Carregar histórico do período" escolhendo as datas.'
+  'Após a sincronização concluída, clique em "Carregar histórico do período" (já vem preenchido com os últimos 90 dias).'
 ];
 
 // Pedido explicito: guia passo a passo pra quem so tem acesso a essa aba
