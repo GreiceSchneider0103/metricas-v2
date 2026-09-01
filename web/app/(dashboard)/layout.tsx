@@ -25,11 +25,18 @@ const NAV_ITEMS: { href: string; label: string; tabs: AppTab[] }[] = [
 
 const PRECIFICACAO_URL = "https://precificacao-app.vercel.app/";
 const GO_TICKETS_URL = "https://lessul-go-atendimento-2p7t.onrender.com/dashboard";
+const SUPORTE_URL = "https://lessul-go-atendimento-2p7t.onrender.com/suporte";
 
 const APP_NAV_ITEMS = [
   { href: PRECIFICACAO_URL, label: "Precificação" },
-  { href: GO_TICKETS_URL, label: "Go Tickets" }
+  { href: GO_TICKETS_URL, label: "Go Tickets" },
+  { href: SUPORTE_URL, label: "Suporte" }
 ];
+
+// "Cargas" ainda nao tem link -- pedido explicito do usuario ("vou
+// adicionar ainda"). Fica visivel mas nao clicavel ate a URL existir, em
+// vez de sumir da nav e depois reaparecer sem aviso nenhum.
+const PENDING_APP_NAV_ITEMS = [{ label: "Cargas" }];
 
 // Decide o que mostrar pra quem ainda não pertence a nenhuma empresa: ninguém
 // cria ou escolhe empresa por conta própria -- todo cadastro cai
@@ -215,6 +222,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <path d="M4.5 5.5A1.5 1.5 0 006 4h4a.75.75 0 000-1.5H6A3 3 0 003 5.5v8A3 3 0 006 16.5h8a3 3 0 003-3v-4a.75.75 0 00-1.5 0v4a1.5 1.5 0 01-1.5 1.5H6A1.5 1.5 0 014.5 13.5v-8z" />
               </svg>
             </a>
+          ))}
+          {PENDING_APP_NAV_ITEMS.map((item) => (
+            <span
+              key={item.label}
+              title="Em breve"
+              className="cursor-not-allowed whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium text-slate-300"
+            >
+              {item.label}
+            </span>
           ))}
         </nav>
       </header>
