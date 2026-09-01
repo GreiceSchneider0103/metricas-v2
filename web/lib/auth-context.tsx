@@ -4,9 +4,10 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./supabase-client";
 import { apiFetch, type RequestOptions } from "./api-client";
-import type { Company } from "./types";
+import type { Company, SalesChannel } from "./types";
 
 const ACTIVE_COMPANY_KEY = "metricas.activeCompanyId";
+const ACTIVE_CHANNEL_KEY = "metricas.activeChannel";
 
 type AuthContextValue = {
   loading: boolean;
@@ -17,6 +18,8 @@ type AuthContextValue = {
   setActiveCompanyId: (companyId: string) => void;
   refreshCompanies: () => Promise<void>;
   signOut: () => Promise<void>;
+  activeChannel: SalesChannel;
+  setActiveChannel: (channel: SalesChannel) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -27,6 +30,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [activeCompanyId, setActiveCompanyIdState] = useState<string | null>(null);
+  const [activeChannel, setActiveChannelState] = useState<SalesChannel>("mercado_livre");
+
+  // So le do localStorage depois de montar (evita mismatch de hidratacao
+  // entre servidor e cliente) -- mesmo padrao do activeCompanyId.
+  useEffect(() => {
+    const stored = typeof window !== "undefined" ? window.localStorage.getItem(ACTIVE_CHANNEL_KEY) : null;
+    if (stored === "mercado_livre" || stored === "magalu") setActiveChannelState(stored);
+  }, []);
 
   const loadCompanies = useCallback(async (accessToken: string) => {
     try {
@@ -77,6 +88,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== "undefined") window.localStorage.setItem(ACTIVE_COMPANY_KEY, companyId);
   }, []);
 
+  const setActiveChannel = useCallback((channel: SalesChannel) => {
+    setActiveChannelState(channel);
+    if (typeof window !== "undefined") window.localStorage.setItem(ACTIVE_CHANNEL_KEY, channel);
+  }, []);
+
   const refreshCompanies = useCallback(async () => {
     if (session) {
       const items = await loadCompanies(session.access_token);
@@ -101,7 +117,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isPlatformAdmin,
     setActiveCompanyId,
     refreshCompanies,
-    signOut
+    signOut,
+    activeChannel,
+    setActiveChannel
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

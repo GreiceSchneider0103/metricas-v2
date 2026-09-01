@@ -93,7 +93,8 @@ function PendingAccessGate() {
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { loading, session, companies, activeCompany, isPlatformAdmin, setActiveCompanyId, signOut } = useAuth();
+  const { loading, session, companies, activeCompany, isPlatformAdmin, setActiveCompanyId, signOut, activeChannel, setActiveChannel } =
+    useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -139,13 +140,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </Link>
             {showChannelSelector && (
               <HeaderMenu
-                label="Mercado Livre"
+                label={activeChannel === "magalu" ? "Magalu" : "Mercado Livre"}
                 className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-sm font-medium text-slate-700 hover:border-slate-300"
               >
-                <HeaderMenuItem selected onClick={() => router.push("/mapa-vendas")}>
+                <HeaderMenuItem
+                  selected={activeChannel === "mercado_livre"}
+                  onClick={() => {
+                    setActiveChannel("mercado_livre");
+                    router.push("/mapa-vendas");
+                  }}
+                >
                   Mercado Livre
                 </HeaderMenuItem>
-                <HeaderMenuItem disabled hint="Em breve">
+                <HeaderMenuItem
+                  selected={activeChannel === "magalu"}
+                  onClick={() => {
+                    setActiveChannel("magalu");
+                    router.push("/mapa-vendas");
+                  }}
+                >
                   Magalu
                 </HeaderMenuItem>
               </HeaderMenu>

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useApi } from "@/lib/auth-context";
-import type { CalendarListing, SalesMapCalendarResponse, SalesMapResponse } from "@/lib/types";
+import { useApi, useAuth } from "@/lib/auth-context";
+import type { CalendarListing, SalesChannel, SalesMapCalendarResponse, SalesMapResponse } from "@/lib/types";
 import { StatusDot } from "@/components/status-badge";
 import { ListingDrawer } from "@/components/listing-drawer";
 import { VarianceBadge } from "@/components/variance-badge";
@@ -31,6 +31,17 @@ const TREND_COLOR: Record<CalendarListing["trend"], string> = {
   down: "text-red-600",
   flat: "text-slate-400"
 };
+
+// MLB (externalId) e Clássico/Premium (listingType) sao conceitos exclusivos
+// do Mercado Livre -- pedido explicito pra nao aparecerem na Magalu.
+function anuncioMeta(item: CalendarListing, channel: SalesChannel) {
+  const parts = [
+    channel !== "magalu" ? item.externalId : null,
+    item.sku ? `SKU ${item.sku}` : null,
+    channel !== "magalu" && item.listingType ? (LISTING_TYPE_LABELS[item.listingType] ?? item.listingType) : null
+  ].filter((part): part is string => Boolean(part));
+  return parts.join(" · ");
+}
 
 const ABC_BADGE_COLOR: Record<string, string> = {
   A: "bg-emerald-100 text-emerald-700",
@@ -75,6 +86,7 @@ function DayCell({ day }: { day: CalendarListing["days"][number] }) {
 
 export default function MapaVendasPage() {
   const api = useApi();
+  const { activeChannel } = useAuth();
   const [month, setMonth] = useState(currentMonth());
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
@@ -102,7 +114,8 @@ export default function MapaVendasPage() {
         search: search || undefined,
         status: status || undefined,
         listingType: listingType || undefined,
-        abcCurve: abcCurve || undefined
+        abcCurve: abcCurve || undefined,
+        channel: activeChannel
       };
       const [calendarResult, summaryResult] = await Promise.all([
         api<SalesMapCalendarResponse>("/api/v1/sales-map/calendar", {
@@ -124,7 +137,17 @@ export default function MapaVendasPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, month, search, status, listingType, abcCurve, sort, page]);
+  }, [api, month, search, status, listingType, abcCurve, sort, page, activeChannel]);
+
+  // "Tipo" (Clássico/Premium) e conceito exclusivo do Mercado Livre -- um
+  // filtro esquecido de uma sessao anterior no ML zeraria silenciosamente
+  // os resultados da Magalu (que nunca tem listingType preenchido).
+  useEffect(() => {
+    if (activeChannel === "magalu" && listingType) {
+      setListingType("");
+      setPage(1);
+    }
+  }, [activeChannel, listingType]);
 
   // "Atualizar tudo": sincroniza anuncios (preco/estoque/status atual) e
   // reprocessa pedidos/metricas/visitas so do mes que esta sendo visto na
@@ -188,7 +211,7 @@ export default function MapaVendasPage() {
         <div className="min-w-[200px] flex-1">
           <label className={fieldLabel}>Buscar</label>
           <input
-            placeholder="Título, MLB ou SKU"
+            placeholder={activeChannel === "magalu" ? "Título ou SKU" : "Título, MLB ou SKU"}
             value={search}
             onChange={(e) => resetPage(setSearch)(e.target.value)}
             className={fieldInput}
@@ -204,14 +227,16 @@ export default function MapaVendasPage() {
             <option value="under_review">Em revisão</option>
           </select>
         </div>
-        <div>
-          <label className={fieldLabel}>Tipo</label>
-          <select value={listingType} onChange={(e) => resetPage(setListingType)(e.target.value)} className={fieldInput}>
-            <option value="">Todos</option>
-            <option value="classic">Clássico</option>
-            <option value="premium">Premium</option>
-          </select>
-        </div>
+        {activeChannel !== "magalu" && (
+          <div>
+            <label className={fieldLabel}>Tipo</label>
+            <select value={listingType} onChange={(e) => resetPage(setListingType)(e.target.value)} className={fieldInput}>
+              <option value="">Todos</option>
+              <option value="classic">Clássico</option>
+              <option value="premium">Premium</option>
+            </select>
+          </div>
+        )}
         <div>
           <label className={fieldLabel}>Curva ABC</label>
           <select value={abcCurve} onChange={(e) => resetPage(setAbcCurve)(e.target.value)} className={fieldInput}>
@@ -320,13 +345,8 @@ export default function MapaVendasPage() {
                     </div>
                     <div className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-400">
                       <StatusDot value={item.status} label={LISTING_STATUS_LABELS[item.status]} />
-                      <span
-                        className="max-w-[150px] truncate"
-                        title={`${item.externalId}${item.sku ? ` · SKU ${item.sku}` : ""}${item.listingType ? ` · ${LISTING_TYPE_LABELS[item.listingType] ?? item.listingType}` : ""}`}
-                      >
-                        {item.externalId}
-                        {item.sku ? ` · SKU ${item.sku}` : ""}
-                        {item.listingType ? ` · ${LISTING_TYPE_LABELS[item.listingType] ?? item.listingType}` : ""}
+                      <span className="max-w-[150px] truncate" title={anuncioMeta(item, activeChannel)}>
+                        {anuncioMeta(item, activeChannel)}
                       </span>
                     </div>
                   </td>
