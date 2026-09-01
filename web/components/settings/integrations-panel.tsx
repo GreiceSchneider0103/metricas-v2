@@ -16,6 +16,37 @@ const ACCOUNT_STATUS_LABELS: Record<string, string> = {
   disconnected: "Desconectada"
 };
 
+const CONNECT_STEPS = [
+  "No topo da tela, selecione a empresa correta no menu suspenso.",
+  'Clique em "Configurações" no menu.',
+  'Abra a aba "Integrações" (você já está aqui).',
+  'Clique em "Conectar conta Mercado Livre" abaixo e faça login com a conta da loja.',
+  "Aguarde a sincronização automática dos anúncios (roda sozinha a cada poucos minutos).",
+  'Se precisar do histórico de meses anteriores, use "Carregar histórico do período" escolhendo as datas.'
+];
+
+// Pedido explicito: guia passo a passo pra quem so tem acesso a essa aba
+// (conta compartilhada usada so pra conectar contas do Mercado Livre de
+// varias empresas) -- mas fica visivel pra qualquer um, e util de qualquer
+// jeito.
+function ConnectStepsGuide() {
+  return (
+    <Card>
+      <h3 className="mb-3 text-sm font-semibold text-slate-700">Como conectar uma conta do Mercado Livre</h3>
+      <ol className="space-y-2">
+        {CONNECT_STEPS.map((step, index) => (
+          <li key={step} className="flex items-start gap-2.5 text-sm text-slate-600">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700">
+              {index + 1}
+            </span>
+            {step}
+          </li>
+        ))}
+      </ol>
+    </Card>
+  );
+}
+
 function isoDaysAgo(days: number) {
   const date = new Date();
   date.setUTCDate(date.getUTCDate() - days);
@@ -128,6 +159,8 @@ export function IntegrationsPanel() {
 
   return (
     <div className="space-y-6">
+      <ConnectStepsGuide />
+
       <div className="flex items-center justify-end">
         <Button onClick={handleConnect} disabled={connecting}>
           {connecting ? "Gerando link…" : "Conectar conta Mercado Livre"}
