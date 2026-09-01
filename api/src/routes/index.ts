@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { companyRoutes } from "../modules/companies/routes.js";
 import { accessRequestRoutes } from "../modules/access-requests/routes.js";
 import { mercadoLivreRoutes, mercadoLivrePublicRoutes } from "../modules/integrations/mercado-livre/routes.js";
+import { magaluRoutes, magaluPublicRoutes } from "../modules/integrations/magalu/routes.js";
 import { jobRoutes } from "../modules/jobs/routes.js";
 import { cronRoutes } from "../modules/jobs/cron-routes.js";
 import { salesMapRoutes } from "../modules/sales-map/routes.js";
@@ -15,6 +16,7 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(
     async (publicScope) => {
       await mercadoLivrePublicRoutes(publicScope);
+      await magaluPublicRoutes(publicScope);
       await cronRoutes(publicScope);
     },
     { prefix: "/api/v1" }
@@ -25,6 +27,7 @@ export async function registerRoutes(app: FastifyInstance) {
       await companyRoutes(protectedScope);
       await accessRequestRoutes(protectedScope);
       await mercadoLivreRoutes(protectedScope);
+      await magaluRoutes(protectedScope);
       await jobRoutes(protectedScope);
       await salesMapRoutes(protectedScope);
       await teamRoutes(protectedScope);

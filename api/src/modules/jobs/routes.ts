@@ -2,6 +2,8 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { assertAdmOrMaster, getAuthContext } from "../../plugins/auth.js";
 import { runMlSyncAccountJob } from "../../jobs/ml-sync-account.js";
+import { runMagaluSyncAccountJob } from "../../jobs/magalu-sync-account.js";
+import { runMagaluOrdersBackfillJob } from "../../jobs/magalu-orders-sync.js";
 import {
   aggregateListingDailySnapshotForCompany,
   runListingDailySnapshotAggregateJobForYesterday,
@@ -31,6 +33,20 @@ export async function jobRoutes(app: FastifyInstance) {
     const context = await getAuthContext(request);
     assertAdmOrMaster(request, context);
     return runMlSyncAccountJob(context.companyId);
+  });
+
+  // Mesma coisa, canal Magalu.
+  app.post("/jobs/magalu-sync", async (request) => {
+    const context = await getAuthContext(request);
+    assertAdmOrMaster(request, context);
+    return runMagaluSyncAccountJob(context.companyId);
+  });
+
+  app.post("/jobs/magalu-orders-backfill", async (request) => {
+    const context = await getAuthContext(request);
+    assertAdmOrMaster(request, context);
+    const body = dateRangeBodySchema.parse(request.body ?? {});
+    return runMagaluOrdersBackfillJob(context.companyId, body.from, body.to);
   });
 
   // Fase 2: dispara a agregacao diaria manualmente. Sem "date" na query,

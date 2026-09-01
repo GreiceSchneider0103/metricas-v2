@@ -5,6 +5,7 @@ import { supabaseAdmin } from "../../lib/supabase.js";
 import { unwrap } from "../../lib/db.js";
 import { getSaoPauloTodayIso } from "../../lib/dates.js";
 import { runMlSyncAccountJob } from "../../jobs/ml-sync-account.js";
+import { runMagaluSyncAccountJob } from "../../jobs/magalu-sync-account.js";
 import {
   runListingDailySnapshotAggregateJobForToday,
   runListingDailySnapshotAggregateJobForYesterday,
@@ -24,9 +25,21 @@ function isValidCronSecret(secret: unknown) {
   return secret === config.CRON_SECRET || secret === config.SUPABASE_CRON_SECRET;
 }
 
+// Uniao das empresas com pelo menos uma conta conectada em QUALQUER canal --
+// os crons de agregacao/alertas (channel-agnosticos) precisam cobrir tambem
+// empresa que so tem Magalu conectada, sem nenhuma conta ML.
 async function getConnectedCompanyIds() {
+  const [mlAccounts, magaluAccounts] = await Promise.all([
+    supabaseAdmin.from("ml_accounts").select("company_id").eq("status", "connected"),
+    supabaseAdmin.from("magalu_accounts").select("company_id").eq("status", "connected")
+  ]);
+  const ids = [...(unwrap(mlAccounts) ?? []), ...(unwrap(magaluAccounts) ?? [])].map((row) => row.company_id);
+  return Array.from(new Set(ids));
+}
+
+async function getConnectedMagaluCompanyIds() {
   const accounts = unwrap(
-    await supabaseAdmin.from("ml_accounts").select("company_id").eq("status", "connected")
+    await supabaseAdmin.from("magalu_accounts").select("company_id").eq("status", "connected")
   );
   return Array.from(new Set((accounts ?? []).map((row) => row.company_id)));
 }
@@ -45,6 +58,26 @@ export async function cronRoutes(app: FastifyInstance) {
     for (const companyId of companyIds) {
       try {
         results.push({ companyId, ...(await runMlSyncAccountJob(companyId)) });
+      } catch (error) {
+        results.push({ companyId, error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+
+    return { companiesProcessed: companyIds.length, results };
+  });
+
+  // Mesma coisa, canal Magalu -- so roda pra empresas com conta Magalu
+  // conectada de verdade (fica vazio ate a integracao ser habilitada).
+  app.post("/cron/magalu-sync-all", async (request, reply) => {
+    if (!isValidCronSecret(request.headers["x-cron-secret"])) {
+      return reply.code(401).send({ error: "invalid cron secret" });
+    }
+
+    const companyIds = await getConnectedMagaluCompanyIds();
+    const results = [];
+    for (const companyId of companyIds) {
+      try {
+        results.push({ companyId, ...(await runMagaluSyncAccountJob(companyId)) });
       } catch (error) {
         results.push({ companyId, error: error instanceof Error ? error.message : String(error) });
       }
