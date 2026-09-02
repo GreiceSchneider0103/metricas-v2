@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TaskDrawer } from "@/components/task-drawer";
+import { TasksCalendar, MONTH_LABEL_FORMAT, shiftMonth } from "@/components/operational/tasks-calendar";
 import { fieldInput, fieldLabel } from "@/lib/ui";
 
 const STATUS_OPTIONS: Task["status"][] = ["todo", "in_progress", "waiting", "done", "cancelled"];
@@ -49,6 +50,8 @@ export function AtividadesPanel() {
   const [creating, setCreating] = useState(false);
   const [showMore, setShowMore] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [view, setView] = useState<"list" | "calendar">("list");
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date());
 
   async function loadTasks() {
     setLoading(true);
@@ -132,6 +135,17 @@ export function AtividadesPanel() {
       await loadTasks();
     } catch {
       setError("Não foi possível atualizar essa tarefa.");
+    }
+  }
+
+  // Arrastar uma tarefa pra outro dia no calendario reagenda o prazo direto
+  // -- mesmo endpoint que o drawer usa pra editar dueDate.
+  async function handleReschedule(task: Task, isoDate: string) {
+    try {
+      await api(`/api/v1/tasks/${task.id}`, { method: "PATCH", body: { dueDate: isoDate } });
+      await loadTasks();
+    } catch {
+      setError("Não foi possível reagendar essa tarefa.");
     }
   }
 
@@ -237,67 +251,118 @@ export function AtividadesPanel() {
         </form>
       </Card>
 
-      <div className="flex flex-wrap items-center gap-1 text-sm">
-        <span className="mr-1 text-slate-500">Filtrar:</span>
-        <button
-          onClick={() => setStatusFilter("")}
-          className={`rounded-full px-3 py-1.5 font-medium transition-colors ${statusFilter === "" ? "bg-brand-50 text-brand-700" : "text-slate-500 hover:bg-slate-100"}`}
-        >
-          Todas
-        </button>
-        {STATUS_OPTIONS.map((option) => (
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-1 text-sm">
+          <span className="mr-1 text-slate-500">Filtrar:</span>
           <button
-            key={option}
-            onClick={() => setStatusFilter(option)}
-            className={`rounded-full px-3 py-1.5 font-medium transition-colors ${
-              statusFilter === option ? "bg-brand-50 text-brand-700" : "text-slate-500 hover:bg-slate-100"
-            }`}
+            onClick={() => setStatusFilter("")}
+            className={`rounded-full px-3 py-1.5 font-medium transition-colors ${statusFilter === "" ? "bg-brand-50 text-brand-700" : "text-slate-500 hover:bg-slate-100"}`}
           >
-            {STATUS_LABELS[option]}
+            Todas
           </button>
-        ))}
+          {STATUS_OPTIONS.map((option) => (
+            <button
+              key={option}
+              onClick={() => setStatusFilter(option)}
+              className={`rounded-full px-3 py-1.5 font-medium transition-colors ${
+                statusFilter === option ? "bg-brand-50 text-brand-700" : "text-slate-500 hover:bg-slate-100"
+              }`}
+            >
+              {STATUS_LABELS[option]}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-1 rounded-full bg-slate-100 p-0.5 text-sm">
+          <button
+            onClick={() => setView("list")}
+            className={`rounded-full px-3 py-1 font-medium transition-colors ${view === "list" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500"}`}
+          >
+            Lista
+          </button>
+          <button
+            onClick={() => setView("calendar")}
+            className={`rounded-full px-3 py-1 font-medium transition-colors ${view === "calendar" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500"}`}
+          >
+            Calendário
+          </button>
+        </div>
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      <div className="space-y-2">
-        {loading && <p className="text-sm text-slate-400">Carregando…</p>}
-        {!loading && tasks.length === 0 && <EmptyState title="Nenhuma tarefa encontrada" hint="Crie a primeira tarefa acima." />}
-        {!loading &&
-          tasks.map((task) => (
-            <Card key={task.id} className="flex items-center justify-between gap-3">
-              <button type="button" onClick={() => setSelectedTask(task)} className="min-w-0 flex-1 text-left">
-                <p className="font-medium text-slate-800 hover:underline">{task.title}</p>
-                {task.description && <p className="mt-1 truncate text-sm text-slate-500">{task.description}</p>}
-                {task.relatedListing && (
-                  <p className="mt-1 truncate text-xs text-slate-500">
-                    Anúncio: {task.relatedListing.title}{" "}
-                    <span className="text-slate-400">({task.relatedListing.externalId})</span>
-                  </p>
-                )}
-                <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <StatusBadge value={task.status} label={STATUS_LABELS[task.status]} />
-                  <StatusBadge value={task.priority} label={PRIORITY_LABELS[task.priority]} />
-                  {task.dueDate && <span className="text-xs text-slate-400">Prazo: {task.dueDate}</span>}
-                  {task.assignee && (
-                    <span className="text-xs text-slate-400">Responsável: {task.assignee.fullName ?? task.assignee.email}</span>
-                  )}
-                </div>
-              </button>
-              <select
-                value={task.status}
-                onChange={(e) => handleStatusChange(task, e.target.value as Task["status"])}
-                className="shrink-0 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm"
+      {view === "calendar" ? (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCalendarMonth((current) => shiftMonth(current, -1))}
+                className="rounded-lg border border-slate-200 px-2.5 py-1 text-sm text-slate-600 hover:bg-slate-50"
               >
-                {STATUS_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {STATUS_LABELS[option]}
-                  </option>
-                ))}
-              </select>
-            </Card>
-          ))}
-      </div>
+                ‹
+              </button>
+              <button
+                onClick={() => setCalendarMonth((current) => shiftMonth(current, 1))}
+                className="rounded-lg border border-slate-200 px-2.5 py-1 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                ›
+              </button>
+              <button
+                onClick={() => setCalendarMonth(new Date())}
+                className="rounded-lg border border-slate-200 px-2.5 py-1 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                Hoje
+              </button>
+              <h3 className="ml-1 text-sm font-semibold capitalize text-slate-700">{MONTH_LABEL_FORMAT.format(calendarMonth)}</h3>
+            </div>
+            <p className="text-xs text-slate-400">Arraste uma tarefa pra outro dia pra reagendar.</p>
+          </div>
+          {loading ? (
+            <p className="text-sm text-slate-400">Carregando…</p>
+          ) : (
+            <TasksCalendar tasks={tasks} monthDate={calendarMonth} onSelectTask={setSelectedTask} onRescheduleTask={handleReschedule} />
+          )}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {loading && <p className="text-sm text-slate-400">Carregando…</p>}
+          {!loading && tasks.length === 0 && <EmptyState title="Nenhuma tarefa encontrada" hint="Crie a primeira tarefa acima." />}
+          {!loading &&
+            tasks.map((task) => (
+              <Card key={task.id} className="flex items-center justify-between gap-3">
+                <button type="button" onClick={() => setSelectedTask(task)} className="min-w-0 flex-1 text-left">
+                  <p className="font-medium text-slate-800 hover:underline">{task.title}</p>
+                  {task.description && <p className="mt-1 truncate text-sm text-slate-500">{task.description}</p>}
+                  {task.relatedListing && (
+                    <p className="mt-1 truncate text-xs text-slate-500">
+                      Anúncio: {task.relatedListing.title}{" "}
+                      <span className="text-slate-400">({task.relatedListing.externalId})</span>
+                    </p>
+                  )}
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <StatusBadge value={task.status} label={STATUS_LABELS[task.status]} />
+                    <StatusBadge value={task.priority} label={PRIORITY_LABELS[task.priority]} />
+                    {task.dueDate && <span className="text-xs text-slate-400">Prazo: {task.dueDate}</span>}
+                    {task.assignee && (
+                      <span className="text-xs text-slate-400">Responsável: {task.assignee.fullName ?? task.assignee.email}</span>
+                    )}
+                  </div>
+                </button>
+                <select
+                  value={task.status}
+                  onChange={(e) => handleStatusChange(task, e.target.value as Task["status"])}
+                  className="shrink-0 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm"
+                >
+                  {STATUS_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {STATUS_LABELS[option]}
+                    </option>
+                  ))}
+                </select>
+              </Card>
+            ))}
+        </div>
+      )}
 
       {selectedTask && (
         <TaskDrawer
