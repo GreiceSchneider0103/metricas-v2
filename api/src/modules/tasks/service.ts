@@ -186,6 +186,21 @@ export async function listTasks(companyId: string, filters: TaskFilters, page: n
   };
 }
 
+// Contador leve pro badge da aba Atividades em /operacional -- head:true
+// nao traz linhas, so o count exato, entao nao pesa mesmo com muitas tarefas.
+export async function countOpenTasks(companyId: string) {
+  const result = await supabaseAdmin
+    .from("tasks")
+    .select("*", { count: "exact", head: true })
+    .eq("company_id", companyId)
+    .not("status", "in", "(done,cancelled)");
+
+  if (result.error) {
+    throw new Error(`Falha ao contar tarefas abertas: ${result.error.message}`);
+  }
+  return result.count ?? 0;
+}
+
 export async function getTaskById(companyId: string, taskId: string) {
   const row = unwrap(
     await supabaseAdmin.from("tasks").select(TASK_COLUMNS).eq("company_id", companyId).eq("id", taskId).maybeSingle()

@@ -100,6 +100,14 @@ function exportCalendarCsv(items: CalendarListing[], channel: SalesChannel, mont
   URL.revokeObjectURL(url);
 }
 
+type Density = "full" | "compact";
+const DENSITY_STORAGE_KEY = "metricas.mapaVendas.density";
+
+// Modo compacto esconde as colunas de metrica secundarias (fica so com
+// Vendas e Receita, alem da grade de dias) -- pedido explicito pra reduzir a
+// poluicao visual das ~46 colunas nessa tela em telas menores/zoom maior.
+// As colunas escondidas continuam disponiveis no drawer de cada anuncio.
+
 const ABC_BADGE_COLOR: Record<string, string> = {
   A: "bg-emerald-100 text-emerald-700",
   B: "bg-amber-100 text-amber-700",
@@ -160,6 +168,25 @@ export default function MapaVendasPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshStage, setRefreshStage] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [density, setDensity] = useState<Density>("full");
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(DENSITY_STORAGE_KEY);
+      if (stored === "full" || stored === "compact") setDensity(stored);
+    } catch {
+      // localStorage indisponivel (modo privado etc) -- segue com o padrao "full"
+    }
+  }, []);
+
+  function changeDensity(value: Density) {
+    setDensity(value);
+    try {
+      window.localStorage.setItem(DENSITY_STORAGE_KEY, value);
+    } catch {
+      // idem -- so afeta a conveniencia de lembrar a preferencia
+    }
+  }
 
   const monthStart = `${month}-01`;
   const monthEnd = `${month}-${String(daysInMonth(month)).padStart(2, "0")}`;
@@ -263,6 +290,8 @@ export default function MapaVendasPage() {
 
   const dayNumbers = useMemo(() => Array.from({ length: daysInMonth(month) }, (_, i) => i + 1), [month]);
   const totalPages = data ? Math.max(1, Math.ceil(data.pagination.total / data.pagination.pageSize)) : 1;
+  // Anúncio + dias + (Vendas/Receita sempre visíveis, +8 colunas extras no modo completo)
+  const columnCount = 1 + dayNumbers.length + (density === "full" ? 10 : 2);
 
   function resetPage<T>(setter: (value: T) => void) {
     return (value: T) => {
@@ -279,6 +308,22 @@ export default function MapaVendasPage() {
         actions={
           <div className="flex items-center gap-2">
             {refreshStage && <span className="text-xs text-slate-400">{refreshStage}</span>}
+            <div className="flex items-center gap-1 rounded-full bg-slate-100 p-0.5 text-sm">
+              <button
+                type="button"
+                onClick={() => changeDensity("compact")}
+                className={`rounded-full px-3 py-1 font-medium transition-colors ${density === "compact" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500"}`}
+              >
+                Compacta
+              </button>
+              <button
+                type="button"
+                onClick={() => changeDensity("full")}
+                className={`rounded-full px-3 py-1 font-medium transition-colors ${density === "full" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500"}`}
+              >
+                Completa
+              </button>
+            </div>
             <Button variant="secondary" size="sm" onClick={handleExportCsv} disabled={exporting}>
               {exporting ? "Exportando…" : "Exportar CSV"}
             </Button>
@@ -396,28 +441,28 @@ export default function MapaVendasPage() {
                 </th>
               ))}
               <th className="px-1 py-2 text-right font-medium">Vendas</th>
-              <th className="px-1 py-2 text-right font-medium">Média</th>
-              <th className="px-1 py-2 text-right font-medium">Meta</th>
-              <th className="px-1 py-2 text-right font-medium">Pedidos</th>
-              <th className="px-1 py-2 text-right font-medium">Visitas</th>
+              {density === "full" && <th className="px-1 py-2 text-right font-medium">Média</th>}
+              {density === "full" && <th className="px-1 py-2 text-right font-medium">Meta</th>}
+              {density === "full" && <th className="px-1 py-2 text-right font-medium">Pedidos</th>}
+              {density === "full" && <th className="px-1 py-2 text-right font-medium">Visitas</th>}
               <th className="px-1 py-2 text-right font-medium">Receita</th>
-              <th className="px-1 py-2 text-right font-medium">Ticket médio</th>
-              <th className="px-1 py-2 text-right font-medium">Estoque</th>
-              <th className="px-1 py-2 text-right font-medium">Dias estoque</th>
-              <th className="px-1 py-2 text-center font-medium">Tend.</th>
+              {density === "full" && <th className="px-1 py-2 text-right font-medium">Ticket médio</th>}
+              {density === "full" && <th className="px-1 py-2 text-right font-medium">Estoque</th>}
+              {density === "full" && <th className="px-1 py-2 text-right font-medium">Dias estoque</th>}
+              {density === "full" && <th className="px-1 py-2 text-center font-medium">Tend.</th>}
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={dayNumbers.length + 11} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={columnCount} className="px-4 py-6 text-center text-slate-400">
                   Carregando…
                 </td>
               </tr>
             )}
             {!loading && data?.items.length === 0 && (
               <tr>
-                <td colSpan={dayNumbers.length + 11} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={columnCount} className="px-4 py-6 text-center text-slate-400">
                   Nenhum anúncio encontrado.
                 </td>
               </tr>
@@ -468,17 +513,21 @@ export default function MapaVendasPage() {
                     <DayCell key={day.date} day={day} />
                   ))}
                   <td className="px-1 py-1.5 text-right">{item.totals.unitsSold}</td>
-                  <td className="px-1 py-1.5 text-right">{item.avgDailyUnits.toFixed(1)}</td>
-                  <td className="px-1 py-1.5 text-right">{item.goal ? item.goal.monthlyTargetUnits : "—"}</td>
-                  <td className="px-1 py-1.5 text-right">{item.totals.ordersCount}</td>
-                  <td className="px-1 py-1.5 text-right">{item.totals.visits}</td>
+                  {density === "full" && <td className="px-1 py-1.5 text-right">{item.avgDailyUnits.toFixed(1)}</td>}
+                  {density === "full" && <td className="px-1 py-1.5 text-right">{item.goal ? item.goal.monthlyTargetUnits : "—"}</td>}
+                  {density === "full" && <td className="px-1 py-1.5 text-right">{item.totals.ordersCount}</td>}
+                  {density === "full" && <td className="px-1 py-1.5 text-right">{item.totals.visits}</td>}
                   <td className="px-1 py-1.5 text-right">{currency.format(item.totals.revenue)}</td>
-                  <td className="px-1 py-1.5 text-right">{item.avgTicket !== null ? currency.format(item.avgTicket) : "—"}</td>
-                  <td className="px-1 py-1.5 text-right">{item.currentStock}</td>
-                  <td className="px-1 py-1.5 text-right">{item.daysOfStock !== null ? item.daysOfStock.toFixed(1) : "—"}</td>
-                  <td className={`px-1 py-1.5 text-center font-semibold ${TREND_COLOR[item.trend]}`}>
-                    {TREND_ICON[item.trend]}
-                  </td>
+                  {density === "full" && (
+                    <td className="px-1 py-1.5 text-right">{item.avgTicket !== null ? currency.format(item.avgTicket) : "—"}</td>
+                  )}
+                  {density === "full" && <td className="px-1 py-1.5 text-right">{item.currentStock}</td>}
+                  {density === "full" && (
+                    <td className="px-1 py-1.5 text-right">{item.daysOfStock !== null ? item.daysOfStock.toFixed(1) : "—"}</td>
+                  )}
+                  {density === "full" && (
+                    <td className={`px-1 py-1.5 text-center font-semibold ${TREND_COLOR[item.trend]}`}>{TREND_ICON[item.trend]}</td>
+                  )}
                 </tr>
               ))}
           </tbody>

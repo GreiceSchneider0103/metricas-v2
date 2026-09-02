@@ -3,6 +3,7 @@ import { z } from "zod";
 import { assertTabAllowed, getAuthContext } from "../../plugins/auth.js";
 import {
   addTaskComment,
+  countOpenTasks,
   createTask,
   getTaskById,
   listTaskComments,
@@ -70,6 +71,12 @@ export async function taskRoutes(app: FastifyInstance) {
     assertTabAllowed(request, context, "atividades");
     const { page, pageSize, ...filters } = listQuerySchema.parse(request.query ?? {});
     return listTasks(context.companyId, filters, page, pageSize);
+  });
+
+  app.get("/tasks/open-count", async (request) => {
+    const context = await getAuthContext(request);
+    assertTabAllowed(request, context, "atividades");
+    return { count: await countOpenTasks(context.companyId) };
   });
 
   app.get("/tasks/:taskId", async (request) => {
