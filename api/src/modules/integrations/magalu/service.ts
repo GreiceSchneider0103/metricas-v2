@@ -135,6 +135,26 @@ export async function getIntegrationStatus(companyId: string) {
   };
 }
 
+// Mesmo raciocinio do modulo do ML: nao apaga conta nem historico, so limpa
+// tokens e marca "disconnected". Reconectar a mesma loja reaproveita a
+// mesma linha (upsert por company_id+seller_id no callback).
+export async function disconnectAccount(companyId: string, accountId: string) {
+  const result = await supabaseAdmin
+    .from("magalu_accounts")
+    .update({ status: "disconnected", access_token: null, refresh_token: null })
+    .eq("id", accountId)
+    .eq("company_id", companyId)
+    .select("id")
+    .maybeSingle();
+
+  if (result.error) {
+    throw new Error(`Falha ao desconectar conta Magalu: ${result.error.message}`);
+  }
+  if (!result.data) {
+    throw new Error("Conta não encontrada.");
+  }
+}
+
 export async function refreshMagaluAccountAccessToken(account: MagaluAccountRecord): Promise<MagaluAccountRecord> {
   const TOKEN_REFRESH_BUFFER_MS = 60_000;
   const expiresAt = account.token_expires_at ? new Date(account.token_expires_at).getTime() : 0;

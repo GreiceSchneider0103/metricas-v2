@@ -43,6 +43,63 @@ function anuncioMeta(item: CalendarListing, channel: SalesChannel) {
   return parts.join(" · ");
 }
 
+const TREND_LABEL: Record<CalendarListing["trend"], string> = { up: "Subindo", down: "Caindo", flat: "Estável" };
+
+// CSV com ";" (padrao BR pro Excel nao confundir com virgula decimal) e BOM
+// UTF-8 (senao acentos vem corrompidos ao abrir no Excel). Exporta os totais
+// do periodo (nao as 31 colunas de dia a dia -- essas ja aparecem no drawer
+// de cada anuncio, e um CSV com uma coluna por dia seria menos util pra
+// analise do que os totais/metricas agregadas).
+function exportCalendarCsv(items: CalendarListing[], channel: SalesChannel, month: string) {
+  const csvCell = (value: string | number) => {
+    const text = String(value);
+    return /[";\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  };
+
+  const headers = [
+    "Anúncio",
+    channel === "magalu" ? "SKU" : "MLB",
+    "Status",
+    "Curva ABC",
+    "Vendas",
+    "Média diária",
+    "Meta mensal",
+    "Pedidos",
+    "Visitas",
+    "Receita",
+    "Ticket médio",
+    "Estoque",
+    "Dias de estoque",
+    "Tendência"
+  ];
+
+  const rows = items.map((item) => [
+    item.title,
+    channel === "magalu" ? (item.sku ?? "") : item.externalId,
+    LISTING_STATUS_LABELS[item.status] ?? item.status,
+    item.abcCurve ?? "",
+    item.totals.unitsSold,
+    item.avgDailyUnits.toFixed(1),
+    item.goal?.monthlyTargetUnits ?? "",
+    item.totals.ordersCount,
+    item.totals.visits,
+    item.totals.revenue.toFixed(2),
+    item.avgTicket !== null ? item.avgTicket.toFixed(2) : "",
+    item.currentStock,
+    item.daysOfStock !== null ? item.daysOfStock.toFixed(1) : "",
+    TREND_LABEL[item.trend]
+  ]);
+
+  const csvContent = "﻿" + [headers, ...rows].map((row) => row.map(csvCell).join(";")).join("\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `mapa-vendas-${channel}-${month}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 const ABC_BADGE_COLOR: Record<string, string> = {
   A: "bg-emerald-100 text-emerald-700",
   B: "bg-amber-100 text-amber-700",
@@ -102,6 +159,7 @@ export default function MapaVendasPage() {
   const [selectedListing, setSelectedListing] = useState<CalendarListing | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshStage, setRefreshStage] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const monthStart = `${month}-01`;
   const monthEnd = `${month}-${String(daysInMonth(month)).padStart(2, "0")}`;
@@ -178,6 +236,31 @@ export default function MapaVendasPage() {
     }
   }
 
+  // Exporta o mes inteiro filtrado, nao so a pagina atual na tela --
+  // pageSize bem acima do normal (50) pra cobrir o catalogo inteiro numa
+  // chamada so.
+  async function handleExportCsv() {
+    setExporting(true);
+    setError(null);
+    try {
+      const filters = {
+        search: search || undefined,
+        status: status || undefined,
+        listingType: listingType || undefined,
+        abcCurve: abcCurve || undefined,
+        channel: activeChannel
+      };
+      const result = await api<SalesMapCalendarResponse>("/api/v1/sales-map/calendar", {
+        query: { month, sort, page: 1, pageSize: 1000, ...filters }
+      });
+      exportCalendarCsv(result.items, activeChannel, month);
+    } catch {
+      setError("Não foi possível exportar o CSV.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const dayNumbers = useMemo(() => Array.from({ length: daysInMonth(month) }, (_, i) => i + 1), [month]);
   const totalPages = data ? Math.max(1, Math.ceil(data.pagination.total / data.pagination.pageSize)) : 1;
 
@@ -196,6 +279,9 @@ export default function MapaVendasPage() {
         actions={
           <div className="flex items-center gap-2">
             {refreshStage && <span className="text-xs text-slate-400">{refreshStage}</span>}
+            <Button variant="secondary" size="sm" onClick={handleExportCsv} disabled={exporting}>
+              {exporting ? "Exportando…" : "Exportar CSV"}
+            </Button>
             <Button variant="secondary" size="sm" onClick={handleRefreshAll} disabled={refreshing}>
               {refreshing ? "Atualizando…" : "Atualizar tudo"}
             </Button>
@@ -275,6 +361,26 @@ export default function MapaVendasPage() {
           Variação vs. período anterior ({summary.previousPeriod.from} a {summary.previousPeriod.to})
         </p>
       )}
+
+      {/* Legenda das cores da grade de dias -- sem isso ninguem que abre a
+          tela pela primeira vez sabe o que verde/vermelho/azul significam. */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm border border-slate-200 bg-emerald-500" /> Meta batida
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm border border-slate-200 bg-red-400" /> Meta não batida
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm border border-slate-200 bg-brand-100" /> Venda sem meta definida
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm border border-slate-200 bg-slate-50" /> Sem venda no dia
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="text-slate-900">▲▼</span> Preço subiu/desceu
+        </span>
+      </div>
 
       {/* Pedido explicito: caber tudo sem rolagem horizontal -- tabela bem
           mais compacta (fonte, paddings e celulas de dia menores) do que o

@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TaskDrawer } from "@/components/task-drawer";
-import { TasksCalendar, MONTH_LABEL_FORMAT, shiftMonth } from "@/components/operational/tasks-calendar";
+import { TasksCalendar, MONTH_LABEL_FORMAT, shiftMonth, isTaskOverdue } from "@/components/operational/tasks-calendar";
 import { fieldInput, fieldLabel } from "@/lib/ui";
 
 const STATUS_OPTIONS: Task["status"][] = ["todo", "in_progress", "waiting", "done", "cancelled"];
@@ -328,8 +328,10 @@ export function AtividadesPanel() {
           {loading && <p className="text-sm text-slate-400">Carregando…</p>}
           {!loading && tasks.length === 0 && <EmptyState title="Nenhuma tarefa encontrada" hint="Crie a primeira tarefa acima." />}
           {!loading &&
-            tasks.map((task) => (
-              <Card key={task.id} className="flex items-center justify-between gap-3">
+            tasks.map((task) => {
+              const overdue = isTaskOverdue(task);
+              return (
+              <Card key={task.id} className={`flex items-center justify-between gap-3 ${overdue ? "border-red-200 bg-red-50/40" : ""}`}>
                 <button type="button" onClick={() => setSelectedTask(task)} className="min-w-0 flex-1 text-left">
                   <p className="font-medium text-slate-800 hover:underline">{task.title}</p>
                   {task.description && <p className="mt-1 truncate text-sm text-slate-500">{task.description}</p>}
@@ -342,7 +344,12 @@ export function AtividadesPanel() {
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     <StatusBadge value={task.status} label={STATUS_LABELS[task.status]} />
                     <StatusBadge value={task.priority} label={PRIORITY_LABELS[task.priority]} />
-                    {task.dueDate && <span className="text-xs text-slate-400">Prazo: {task.dueDate}</span>}
+                    {task.dueDate && (
+                      <span className={`text-xs ${overdue ? "font-semibold text-red-600" : "text-slate-400"}`}>
+                        Prazo: {task.dueDate}
+                        {overdue ? " (atrasada)" : ""}
+                      </span>
+                    )}
                     {task.assignee && (
                       <span className="text-xs text-slate-400">Responsável: {task.assignee.fullName ?? task.assignee.email}</span>
                     )}
@@ -360,7 +367,8 @@ export function AtividadesPanel() {
                   ))}
                 </select>
               </Card>
-            ))}
+              );
+            })}
         </div>
       )}
 
