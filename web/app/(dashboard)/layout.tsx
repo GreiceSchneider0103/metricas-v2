@@ -26,17 +26,21 @@ const NAV_ITEMS: { href: string; label: string; tabs: AppTab[] }[] = [
 const PRECIFICACAO_URL = "https://precificacao-app.vercel.app/";
 const GO_TICKETS_URL = "https://lessul-go-atendimento-2p7t.onrender.com/dashboard";
 const SUPORTE_URL = "https://lessul-go-atendimento-2p7t.onrender.com/suporte";
+const CARGAS_URL = "https://centraldecargas.vercel.app/";
 
 const APP_NAV_ITEMS = [
   { href: PRECIFICACAO_URL, label: "Precificação" },
   { href: GO_TICKETS_URL, label: "Go Tickets" },
+  { href: CARGAS_URL, label: "Cargas" },
   { href: SUPORTE_URL, label: "Suporte" }
 ];
 
-// "Cargas" ainda nao tem link -- pedido explicito do usuario ("vou
-// adicionar ainda"). Fica visivel mas nao clicavel ate a URL existir, em
-// vez de sumir da nav e depois reaparecer sem aviso nenhum.
-const PENDING_APP_NAV_ITEMS = [{ label: "Cargas" }];
+// Precificação, Go Tickets, Cargas e Suporte sao sistemas separados (times/
+// fornecedores diferentes) -- nao ha SSO de verdade entre eles e o Metriks
+// hoje. Esse aviso (mostrado uma vez, some ao fechar) e o substituto
+// possivel: orienta a pessoa a usar o mesmo email/senha ao se cadastrar
+// manualmente nesses sistemas, em vez de nao dizer nada.
+const EXTERNAL_TOOLS_HINT_KEY = "metricas.externalToolsHintDismissed";
 
 // Decide o que mostrar pra quem ainda não pertence a nenhuma empresa: ninguém
 // cria ou escolhe empresa por conta própria -- todo cadastro cai
@@ -104,6 +108,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const [showExternalToolsHint, setShowExternalToolsHint] = useState(false);
+
+  useEffect(() => {
+    try {
+      setShowExternalToolsHint(window.localStorage.getItem(EXTERNAL_TOOLS_HINT_KEY) !== "true");
+    } catch {
+      // localStorage indisponivel -- so nao mostra o aviso, sem quebrar a tela
+    }
+  }, []);
+
+  function dismissExternalToolsHint() {
+    setShowExternalToolsHint(false);
+    try {
+      window.localStorage.setItem(EXTERNAL_TOOLS_HINT_KEY, "true");
+    } catch {
+      // idem -- so afeta se o aviso volta a aparecer na proxima visita
+    }
+  }
 
   const allowedTabs = isPlatformAdmin ? ALL_TABS : (activeCompany?.allowedTabs ?? ALL_TABS);
   const visibleNavItems = NAV_ITEMS.filter((item) => item.tabs.some((tab) => allowedTabs.includes(tab)));
@@ -223,17 +245,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </svg>
             </a>
           ))}
-          {PENDING_APP_NAV_ITEMS.map((item) => (
-            <span
-              key={item.label}
-              title="Em breve"
-              className="cursor-not-allowed whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium text-slate-300"
-            >
-              {item.label}
-            </span>
-          ))}
         </nav>
       </header>
+      {showExternalToolsHint && (
+        <div className="flex items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-6 py-2 text-xs text-amber-800">
+          <span>
+            Precificação, Go Tickets, Cargas e Suporte são sistemas separados: ao criar sua conta neles, use o mesmo e-mail e senha
+            daqui do Go Metriks.
+          </span>
+          <button onClick={dismissExternalToolsHint} className="shrink-0 font-medium hover:underline">
+            Entendi
+          </button>
+        </div>
+      )}
       {/* max-w mais largo (era 1600px) -- o mapa de vendas tem ~46 colunas
           (anuncio/ABC/status/tipo + ate 31 dias + 11 metricas) e precisava
           de mais espaco horizontal pra caber sem rolagem lateral. Paginas

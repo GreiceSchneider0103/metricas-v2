@@ -7,6 +7,8 @@ import { StatusBadge } from "@/components/status-badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast";
 import { fieldInput, fieldLabel } from "@/lib/ui";
 
 function todayIso() {
@@ -170,6 +172,8 @@ function GoalCard({
   onChanged: () => void;
 }) {
   const api = useApi();
+  const confirm = useConfirm();
+  const showToast = useToast();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(goal.name);
   const [targetValue, setTargetValue] = useState(String(goal.targetValue));
@@ -211,14 +215,21 @@ function GoalCard({
   }
 
   async function handleDelete() {
-    if (!window.confirm(`Excluir a meta "${goal.name}"? Essa ação não pode ser desfeita.`)) return;
+    const confirmed = await confirm({
+      message: `Excluir a meta "${goal.name}"? Essa ação não pode ser desfeita.`,
+      confirmLabel: "Excluir",
+      danger: true
+    });
+    if (!confirmed) return;
     setDeleting(true);
     setError(null);
     try {
       await api(`/api/v1/goals/${goal.id}`, { method: "DELETE" });
+      showToast("Meta excluída.", "success");
       onChanged();
     } catch {
       setError("Não foi possível excluir essa meta.");
+      showToast("Não foi possível excluir essa meta.", "error");
       setDeleting(false);
     }
   }

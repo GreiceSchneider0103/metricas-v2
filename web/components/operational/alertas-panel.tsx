@@ -6,6 +6,8 @@ import type { Alert } from "@/lib/types";
 import { StatusBadge } from "@/components/status-badge";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/toast";
 import { ALERT_CODE_LABELS } from "@/lib/labels";
 
 const STATUS_FILTERS = ["open", "resolved", "muted", ""] as const;
@@ -32,6 +34,7 @@ const ALERT_STATUS_LABELS: Record<Alert["status"], string> = {
 
 export function AlertasPanel({ onDataChanged }: { onDataChanged?: () => void } = {}) {
   const api = useApi();
+  const showToast = useToast();
   const { activeCompany } = useAuth();
   const canManage = activeCompany?.role === "master" || activeCompany?.role === "adm";
 
@@ -98,8 +101,10 @@ export function AlertasPanel({ onDataChanged }: { onDataChanged?: () => void } =
     try {
       await Promise.all(pending.map((alert) => api(`/api/v1/alerts/${alert.id}`, { method: "PATCH", body: { status: "resolved" } })));
       await loadAlerts();
+      showToast(`${pending.length} alertas resolvidos.`, "success");
     } catch {
       setError("Não foi possível resolver todos os alertas desse grupo.");
+      showToast("Não foi possível resolver todos os alertas desse grupo.", "error");
     } finally {
       setBulkResolving((prev) => {
         const next = new Set(prev);
@@ -128,7 +133,12 @@ export function AlertasPanel({ onDataChanged }: { onDataChanged?: () => void } =
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="space-y-3">
-        {loading && <p className="text-sm text-slate-400">Carregando…</p>}
+        {loading &&
+          Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-card">
+              <Skeleton className="h-4 w-1/2" />
+            </div>
+          ))}
         {!loading && groups.length === 0 && <EmptyState title="Nenhum alerta encontrado" hint="Tudo certo por aqui." />}
         {!loading &&
           groups.map((group) => {
