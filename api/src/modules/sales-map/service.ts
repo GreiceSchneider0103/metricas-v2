@@ -30,6 +30,7 @@ type ListingRow = {
   available_quantity: number | null;
   has_ads: boolean;
   has_promotion: boolean;
+  is_full: boolean;
   attributes: Record<string, string | null> | null;
 };
 
@@ -67,6 +68,7 @@ type SalesMapRow = {
   currentStock: number;
   hasAds: boolean;
   hasPromotion: boolean;
+  isFull: boolean;
   sku: string | null;
   ordersCount: number;
   unitsSold: number;
@@ -114,7 +116,7 @@ async function fetchFilteredListings(companyId: string, filters: SalesMapFilters
     let query = supabaseAdmin
       .from("listings")
       .select(
-        "id, external_id, title, category_name, status, permalink, listing_type, logistic_type, is_catalog, abc_curve, price, available_quantity, has_ads, has_promotion, attributes"
+        "id, external_id, title, category_name, status, permalink, listing_type, logistic_type, is_catalog, abc_curve, price, available_quantity, has_ads, has_promotion, is_full, attributes"
       )
       .eq("company_id", companyId);
 
@@ -214,6 +216,7 @@ export async function getSalesMap(input: {
       currentStock: listing.available_quantity ?? 0,
       hasAds: listing.has_ads,
       hasPromotion: listing.has_promotion,
+      isFull: listing.is_full,
       sku: extractSku(listing.attributes),
       ordersCount: t.ordersCount,
       unitsSold: t.unitsSold,
@@ -499,6 +502,7 @@ export async function getSalesMapCalendar(input: {
       abcCurve: listing.abc_curve,
       hasAds: listing.has_ads,
       hasPromotion: listing.has_promotion,
+      isFull: listing.is_full,
       sku: extractSku(listing.attributes),
       currentStock: listing.available_quantity ?? 0,
       hasOpenTask: listingIdsWithOpenTask.has(listing.id),

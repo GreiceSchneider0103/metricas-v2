@@ -335,6 +335,14 @@ export default function MapaVendasPage() {
                           {item.abcCurve}
                         </span>
                       )}
+                      {item.isFull && (
+                        <span
+                          className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm bg-blue-100 text-[9px] font-bold text-blue-700"
+                          title="Estoque no Full"
+                        >
+                          F
+                        </span>
+                      )}
                       <button
                         onClick={() => setSelectedListing(item)}
                         title={item.title}
