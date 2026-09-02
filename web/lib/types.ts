@@ -55,6 +55,7 @@ export type SalesMapItem = {
   currentStock: number;
   hasAds: boolean;
   hasPromotion: boolean;
+  isFull: boolean;
   sku: string | null;
   ordersCount: number;
   unitsSold: number;
@@ -109,6 +110,7 @@ export type CalendarListing = {
   abcCurve: string | null;
   hasAds: boolean;
   hasPromotion: boolean;
+  isFull: boolean;
   sku: string | null;
   currentStock: number;
   hasOpenTask: boolean;
