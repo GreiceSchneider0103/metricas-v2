@@ -50,7 +50,9 @@ const calendarQuerySchema = filtersSchema.extend({
   sort: sortSchema,
   sortDir: z.enum(["asc", "desc"]).optional(),
   page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(50).default(50)
+  // Teto bem acima do usado na tela (50) -- o botao "Exportar CSV" pede o
+  // catalogo inteiro numa chamada so, sem paginar.
+  pageSize: z.coerce.number().int().min(1).max(1000).default(50)
 });
 
 const listingIdParamsSchema = z.object({ listingId: z.string().uuid() });

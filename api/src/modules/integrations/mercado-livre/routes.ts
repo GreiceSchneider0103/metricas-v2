@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { config } from "../../../config.js";
 import { assertAdmOrMaster, assertTabAllowed, getAuthContext } from "../../../plugins/auth.js";
-import { getAuthorizationUrl, getIntegrationStatus, handleOAuthCallback } from "./service.js";
+import { disconnectAccount, getAuthorizationUrl, getIntegrationStatus, handleOAuthCallback } from "./service.js";
 
 function callbackHtml(status: "success" | "error", message: string) {
   // A rota do frontend e /configuracoes (aba "Integrações" por dentro dela)
@@ -39,6 +39,15 @@ export async function mercadoLivreRoutes(app: FastifyInstance) {
     const context = await getAuthContext(request);
     assertTabAllowed(request, context, "configuracoes");
     return getIntegrationStatus(context.companyId);
+  });
+
+  app.post("/integrations/mercado-livre/:accountId/disconnect", async (request) => {
+    const context = await getAuthContext(request);
+    assertTabAllowed(request, context, "configuracoes");
+    assertAdmOrMaster(request, context);
+    const params = z.object({ accountId: z.string().uuid() }).parse(request.params);
+    await disconnectAccount(context.companyId, params.accountId);
+    return { ok: true };
   });
 }
 

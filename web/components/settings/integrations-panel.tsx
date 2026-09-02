@@ -146,6 +146,20 @@ function IntegrationChannelCard({ channel }: { channel: ChannelConfig }) {
     }
   }
 
+  // Desconectar NAO apaga o historico ja sincronizado -- so para de
+  // sincronizar essa conta (limpa os tokens no backend). Reconectar a mesma
+  // loja depois reaproveita a mesma conta/historico.
+  async function handleDisconnect(accountId: string, nickname: string) {
+    if (!window.confirm(`Desconectar a conta "${nickname}"? O histórico já sincronizado é mantido -- você pode reconectar depois.`)) return;
+    setError(null);
+    try {
+      await api(`/api/v1/integrations/${channel.slug}/${accountId}/disconnect`, { method: "POST" });
+      await loadStatus();
+    } catch {
+      setError("Não foi possível desconectar essa conta.");
+    }
+  }
+
   // Carga retroativa completa de um periodo escolhido: pedidos -> agregacao
   // diaria (listing_daily_snapshot, que e o que o mapa de vendas/graficos
   // realmente leem) -> visitas (so Mercado Livre).
@@ -233,6 +247,7 @@ function IntegrationChannelCard({ channel }: { channel: ChannelConfig }) {
                   <th className="px-4 py-2.5 font-medium">Status</th>
                   <th className="px-4 py-2.5 font-medium">Anúncios</th>
                   <th className="px-4 py-2.5 font-medium">Última sincronização</th>
+                  <th className="px-4 py-2.5" />
                 </tr>
               </thead>
               <tbody>
@@ -245,6 +260,16 @@ function IntegrationChannelCard({ channel }: { channel: ChannelConfig }) {
                     <td className="px-4 py-2.5">{account.listingsCount}</td>
                     <td className="px-4 py-2.5 text-slate-500">
                       {account.last_synced_at ? new Date(account.last_synced_at).toLocaleString("pt-BR") : "—"}
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      {account.status !== "disconnected" && (
+                        <button
+                          onClick={() => handleDisconnect(account.id, account.nickname)}
+                          className="text-xs font-medium text-red-600 hover:underline"
+                        >
+                          Desconectar
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

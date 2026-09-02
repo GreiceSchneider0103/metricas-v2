@@ -146,6 +146,29 @@ export async function getIntegrationStatus(companyId: string) {
   };
 }
 
+// Desconectar NAO apaga a conta nem os dados historicos ja sincronizados
+// (listings/orders continuam com o vinculo pra sempre poder reconectar e
+// reaproveitar o historico) -- so limpa os tokens e marca "disconnected",
+// tirando a conta da lista que os crons/sync consideram "conectada". Se a
+// pessoa reconectar a mesma loja depois, o upsert por (company_id,
+// seller_id) no callback reaproveita essa mesma linha.
+export async function disconnectAccount(companyId: string, accountId: string) {
+  const result = await supabaseAdmin
+    .from("ml_accounts")
+    .update({ status: "disconnected", access_token: null, refresh_token: null })
+    .eq("id", accountId)
+    .eq("company_id", companyId)
+    .select("id")
+    .maybeSingle();
+
+  if (result.error) {
+    throw new Error(`Falha ao desconectar conta ML: ${result.error.message}`);
+  }
+  if (!result.data) {
+    throw new Error("Conta não encontrada.");
+  }
+}
+
 export async function refreshMlAccountAccessToken(account: MlAccountRecord): Promise<MlAccountRecord> {
   const TOKEN_REFRESH_BUFFER_MS = 60_000;
   const expiresAt = account.token_expires_at ? new Date(account.token_expires_at).getTime() : 0;

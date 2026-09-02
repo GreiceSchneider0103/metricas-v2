@@ -35,6 +35,13 @@ export function shiftMonth(date: Date, deltaMonths: number) {
 
 export const MONTH_LABEL_FORMAT = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });
 
+// Atrasada = prazo no passado e ainda nao concluida/cancelada -- usado tanto
+// na lista quanto no calendario, mesma regra dos dois lugares.
+export function isTaskOverdue(task: Task) {
+  if (!task.dueDate || task.status === "done" || task.status === "cancelled") return false;
+  return task.dueDate < toIsoDate(new Date());
+}
+
 export function TasksCalendar({
   tasks,
   monthDate,
@@ -108,7 +115,9 @@ export function TasksCalendar({
                 {date.getDate()}
               </div>
               <div className="space-y-1">
-                {dayTasks.slice(0, MAX_VISIBLE_PER_DAY).map((task) => (
+                {dayTasks.slice(0, MAX_VISIBLE_PER_DAY).map((task) => {
+                  const overdue = isTaskOverdue(task);
+                  return (
                   <button
                     key={task.id}
                     type="button"
@@ -123,15 +132,16 @@ export function TasksCalendar({
                       setDragOverIso(null);
                     }}
                     onClick={() => onSelectTask(task)}
-                    title={task.title}
-                    className={`flex w-full cursor-grab items-center gap-1 truncate rounded px-1.5 py-0.5 text-left text-[11px] font-medium text-slate-700 transition-opacity hover:bg-slate-100 active:cursor-grabbing ${
-                      draggingTaskId === task.id ? "opacity-40" : ""
-                    }`}
+                    title={overdue ? `${task.title} (atrasada)` : task.title}
+                    className={`flex w-full cursor-grab items-center gap-1 truncate rounded px-1.5 py-0.5 text-left text-[11px] font-medium transition-opacity hover:bg-slate-100 active:cursor-grabbing ${
+                      overdue ? "bg-red-50 text-red-700" : "text-slate-700"
+                    } ${draggingTaskId === task.id ? "opacity-40" : ""}`}
                   >
-                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${PRIORITY_DOT[task.priority]}`} />
+                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${overdue ? "bg-red-500" : PRIORITY_DOT[task.priority]}`} />
                     <span className="truncate">{task.title}</span>
                   </button>
-                ))}
+                  );
+                })}
                 {dayTasks.length > MAX_VISIBLE_PER_DAY && (
                   <p className="px-1.5 text-[10px] text-slate-400">+{dayTasks.length - MAX_VISIBLE_PER_DAY} mais</p>
                 )}
