@@ -7,6 +7,8 @@ import { StatusBadge } from "@/components/status-badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast";
 import { fieldInput, fieldLabel } from "@/lib/ui";
 
 const ACCOUNT_STATUS_LABELS: Record<string, string> = {
@@ -90,6 +92,8 @@ const MAGALU_CONFIG: ChannelConfig = {
 
 function IntegrationChannelCard({ channel }: { channel: ChannelConfig }) {
   const api = useApi();
+  const confirm = useConfirm();
+  const showToast = useToast();
   const [status, setStatus] = useState<IntegrationStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
@@ -138,9 +142,11 @@ function IntegrationChannelCard({ channel }: { channel: ChannelConfig }) {
     setError(null);
     try {
       await api(channel.syncPath, { method: "POST" });
+      showToast(`Sincronização com ${channel.label} disparada.`, "success");
       await loadStatus();
     } catch {
       setError("Falha ao disparar a sincronização.");
+      showToast("Falha ao disparar a sincronização.", "error");
     } finally {
       setSyncing(false);
     }
@@ -150,13 +156,20 @@ function IntegrationChannelCard({ channel }: { channel: ChannelConfig }) {
   // sincronizar essa conta (limpa os tokens no backend). Reconectar a mesma
   // loja depois reaproveita a mesma conta/historico.
   async function handleDisconnect(accountId: string, nickname: string) {
-    if (!window.confirm(`Desconectar a conta "${nickname}"? O histórico já sincronizado é mantido -- você pode reconectar depois.`)) return;
+    const confirmed = await confirm({
+      message: `Desconectar a conta "${nickname}"? O histórico já sincronizado é mantido -- você pode reconectar depois.`,
+      confirmLabel: "Desconectar",
+      danger: true
+    });
+    if (!confirmed) return;
     setError(null);
     try {
       await api(`/api/v1/integrations/${channel.slug}/${accountId}/disconnect`, { method: "POST" });
+      showToast(`Conta "${nickname}" desconectada.`, "success");
       await loadStatus();
     } catch {
       setError("Não foi possível desconectar essa conta.");
+      showToast("Não foi possível desconectar essa conta.", "error");
     }
   }
 

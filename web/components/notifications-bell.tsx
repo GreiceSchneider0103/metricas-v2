@@ -7,12 +7,17 @@ import type { NotificationItem, Paginated } from "@/lib/types";
 
 const dateTimeFormat = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
+const PAGE_SIZE = 10;
+
 export function NotificationsBell() {
   const api = useApi();
   const [open, setOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     api<{ count: number }>("/api/v1/notifications/unread-count")
@@ -24,12 +29,29 @@ export function NotificationsBell() {
     setOpen((value) => !value);
     if (!loaded) {
       try {
-        const result = await api<Paginated<NotificationItem>>("/api/v1/notifications", { query: { pageSize: 10 } });
+        const result = await api<Paginated<NotificationItem>>("/api/v1/notifications", { query: { page: 1, pageSize: PAGE_SIZE } });
         setItems(result.items);
+        setHasMore(result.pagination.page * result.pagination.pageSize < result.pagination.total);
+        setPage(1);
         setLoaded(true);
       } catch {
         // silencioso -- o sino continua clicável, só não populam itens
       }
+    }
+  }
+
+  async function handleLoadMore() {
+    setLoadingMore(true);
+    try {
+      const nextPage = page + 1;
+      const result = await api<Paginated<NotificationItem>>("/api/v1/notifications", { query: { page: nextPage, pageSize: PAGE_SIZE } });
+      setItems((current) => [...current, ...result.items]);
+      setHasMore(result.pagination.page * result.pagination.pageSize < result.pagination.total);
+      setPage(nextPage);
+    } catch {
+      // silencioso -- tenta de novo no proximo clique
+    } finally {
+      setLoadingMore(false);
     }
   }
 
@@ -122,6 +144,15 @@ export function NotificationsBell() {
                 </Link>
               );
             })}
+            {hasMore && (
+              <button
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                className="block w-full px-4 py-2.5 text-center text-xs font-medium text-brand-600 hover:bg-slate-50 hover:underline disabled:opacity-60"
+              >
+                {loadingMore ? "Carregando…" : "Carregar mais"}
+              </button>
+            )}
           </div>
         </div>
       )}

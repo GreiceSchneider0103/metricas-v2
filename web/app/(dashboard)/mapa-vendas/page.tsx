@@ -9,6 +9,8 @@ import { VarianceBadge } from "@/components/variance-badge";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/toast";
 import { fieldInput, fieldLabel } from "@/lib/ui";
 import { LISTING_STATUS_LABELS, LISTING_TYPE_LABELS, truncateWords } from "@/lib/labels";
 
@@ -151,6 +153,7 @@ function DayCell({ day }: { day: CalendarListing["days"][number] }) {
 
 export default function MapaVendasPage() {
   const api = useApi();
+  const showToast = useToast();
   const { activeChannel } = useAuth();
   const [month, setMonth] = useState(currentMonth());
   const [search, setSearch] = useState("");
@@ -255,8 +258,10 @@ export default function MapaVendasPage() {
       setRefreshStage("Buscando visitas…");
       await api("/api/v1/jobs/visits-backfill", { method: "POST", body: { from, to } });
       await load();
+      showToast("Dados atualizados.", "success");
     } catch {
       setError("Falha ao atualizar os dados. Algumas etapas podem ter sido concluídas -- tente de novo.");
+      showToast("Falha ao atualizar os dados.", "error");
     } finally {
       setRefreshing(false);
       setRefreshStage(null);
@@ -281,8 +286,10 @@ export default function MapaVendasPage() {
         query: { month, sort, page: 1, pageSize: 1000, ...filters }
       });
       exportCalendarCsv(result.items, activeChannel, month);
+      showToast("CSV exportado.", "success");
     } catch {
       setError("Não foi possível exportar o CSV.");
+      showToast("Não foi possível exportar o CSV.", "error");
     } finally {
       setExporting(false);
     }
@@ -453,13 +460,17 @@ export default function MapaVendasPage() {
             </tr>
           </thead>
           <tbody>
-            {loading && (
-              <tr>
-                <td colSpan={columnCount} className="px-4 py-6 text-center text-slate-400">
-                  Carregando…
-                </td>
-              </tr>
-            )}
+            {loading &&
+              Array.from({ length: 6 }).map((_, index) => (
+                <tr key={index} className="border-t border-slate-100">
+                  <td className="sticky left-0 z-10 border-r border-slate-200 bg-white px-2 py-2">
+                    <Skeleton className="h-4 w-24" />
+                  </td>
+                  <td colSpan={columnCount - 1} className="px-2 py-2">
+                    <Skeleton className="h-4 w-full" />
+                  </td>
+                </tr>
+              ))}
             {!loading && data?.items.length === 0 && (
               <tr>
                 <td colSpan={columnCount} className="px-4 py-6 text-center text-slate-400">

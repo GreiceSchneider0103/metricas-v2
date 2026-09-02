@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { TaskDrawer } from "@/components/task-drawer";
 import { TasksCalendar, MONTH_LABEL_FORMAT, shiftMonth, isTaskOverdue } from "@/components/operational/tasks-calendar";
 import { fieldInput, fieldLabel } from "@/lib/ui";
@@ -374,7 +375,16 @@ export function AtividadesPanel({ onDataChanged }: { onDataChanged?: () => void 
         </div>
       ) : (
         <div className="space-y-2">
-          {loading && <p className="text-sm text-slate-400">Carregando…</p>}
+          {loading &&
+            Array.from({ length: 4 }).map((_, index) => (
+              <Card key={index} className="space-y-2">
+                <Skeleton className="h-4 w-1/3" />
+                <div className="flex gap-2">
+                  <Skeleton className="h-4 w-16" />
+                  <Skeleton className="h-4 w-16" />
+                </div>
+              </Card>
+            ))}
           {!loading && visibleTasks.length === 0 && <EmptyState title="Nenhuma tarefa encontrada" hint="Crie a primeira tarefa acima." />}
           {!loading &&
             visibleTasks.map((task) => {
