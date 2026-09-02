@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useApi } from "@/lib/auth-context";
 import type { Task, TeamMember } from "@/lib/types";
 import { StatusBadge } from "@/components/status-badge";
@@ -29,15 +29,21 @@ const PRIORITY_LABELS: Record<Task["priority"], string> = {
   critical: "Crítica"
 };
 
+const PRIORITY_RANK: Record<Task["priority"], number> = { critical: 0, high: 1, medium: 2, low: 3 };
+
+type SortOption = "created" | "dueDate" | "priority";
+
 type ListingOption = { listingId: string; externalId: string; title: string };
 
-export function AtividadesPanel() {
+export function AtividadesPanel({ onDataChanged }: { onDataChanged?: () => void } = {}) {
   const api = useApi();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
+  const [assigneeFilter, setAssigneeFilter] = useState("");
+  const [sortBy, setSortBy] = useState<SortOption>("created");
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -58,6 +64,7 @@ export function AtividadesPanel() {
     try {
       const result = await api<{ items: Task[] }>("/api/v1/tasks", { query: { status: statusFilter || undefined } });
       setTasks(result.items);
+      onDataChanged?.();
     } catch {
       setError("Não foi possível carregar as tarefas.");
     } finally {
@@ -137,6 +144,25 @@ export function AtividadesPanel() {
       setError("Não foi possível atualizar essa tarefa.");
     }
   }
+
+  // Filtro por responsavel e ordenacao sao so client-side (a lista ja vem
+  // inteira do backend pro filtro de status atual) -- sem tarefa sem prazo
+  // no meio da ordenacao por prazo, essas ficam sempre por ultimo.
+  const visibleTasks = useMemo(() => {
+    const filtered = assigneeFilter ? tasks.filter((task) => task.assignedTo === assigneeFilter) : tasks;
+    const sorted = [...filtered];
+    if (sortBy === "priority") {
+      sorted.sort((a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority]);
+    } else if (sortBy === "dueDate") {
+      sorted.sort((a, b) => {
+        if (!a.dueDate && !b.dueDate) return 0;
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return a.dueDate.localeCompare(b.dueDate);
+      });
+    }
+    return sorted;
+  }, [tasks, assigneeFilter, sortBy]);
 
   // Arrastar uma tarefa pra outro dia no calendario reagenda o prazo direto
   // -- mesmo endpoint que o drawer usa pra editar dueDate.
@@ -273,7 +299,29 @@ export function AtividadesPanel() {
           ))}
         </div>
 
-        <div className="flex items-center gap-1 rounded-full bg-slate-100 p-0.5 text-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={assigneeFilter}
+            onChange={(e) => setAssigneeFilter(e.target.value)}
+            className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm text-slate-600"
+          >
+            <option value="">Todos os responsáveis</option>
+            {members.map((member) => (
+              <option key={member.userId} value={member.userId}>
+                {member.fullName ?? member.email}
+              </option>
+            ))}
+          </select>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortOption)}
+            className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm text-slate-600"
+          >
+            <option value="created">Ordenar: mais recentes</option>
+            <option value="dueDate">Ordenar: prazo</option>
+            <option value="priority">Ordenar: prioridade</option>
+          </select>
+          <div className="flex items-center gap-1 rounded-full bg-slate-100 p-0.5 text-sm">
           <button
             onClick={() => setView("list")}
             className={`rounded-full px-3 py-1 font-medium transition-colors ${view === "list" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500"}`}
@@ -286,6 +334,7 @@ export function AtividadesPanel() {
           >
             Calendário
           </button>
+          </div>
         </div>
       </div>
 
@@ -320,15 +369,15 @@ export function AtividadesPanel() {
           {loading ? (
             <p className="text-sm text-slate-400">Carregando…</p>
           ) : (
-            <TasksCalendar tasks={tasks} monthDate={calendarMonth} onSelectTask={setSelectedTask} onRescheduleTask={handleReschedule} />
+            <TasksCalendar tasks={visibleTasks} monthDate={calendarMonth} onSelectTask={setSelectedTask} onRescheduleTask={handleReschedule} />
           )}
         </div>
       ) : (
         <div className="space-y-2">
           {loading && <p className="text-sm text-slate-400">Carregando…</p>}
-          {!loading && tasks.length === 0 && <EmptyState title="Nenhuma tarefa encontrada" hint="Crie a primeira tarefa acima." />}
+          {!loading && visibleTasks.length === 0 && <EmptyState title="Nenhuma tarefa encontrada" hint="Crie a primeira tarefa acima." />}
           {!loading &&
-            tasks.map((task) => {
+            visibleTasks.map((task) => {
               const overdue = isTaskOverdue(task);
               return (
               <Card key={task.id} className={`flex items-center justify-between gap-3 ${overdue ? "border-red-200 bg-red-50/40" : ""}`}>

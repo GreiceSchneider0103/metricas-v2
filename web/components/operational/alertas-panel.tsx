@@ -30,7 +30,7 @@ const ALERT_STATUS_LABELS: Record<Alert["status"], string> = {
   muted: "Silenciado"
 };
 
-export function AlertasPanel() {
+export function AlertasPanel({ onDataChanged }: { onDataChanged?: () => void } = {}) {
   const api = useApi();
   const { activeCompany } = useAuth();
   const canManage = activeCompany?.role === "master" || activeCompany?.role === "adm";
@@ -40,12 +40,14 @@ export function AlertasPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [bulkResolving, setBulkResolving] = useState<Set<string>>(new Set());
 
   async function loadAlerts() {
     setLoading(true);
     try {
       const result = await api<{ items: Alert[] }>("/api/v1/alerts", { query: { status: statusFilter || undefined } });
       setAlerts(result.items);
+      onDataChanged?.();
     } catch {
       setError("Não foi possível carregar os alertas.");
     } finally {
@@ -86,6 +88,27 @@ export function AlertasPanel() {
     }
   }
 
+  // Resolve em lote os alertas ainda abertos/silenciados de um grupo -- util
+  // quando o mesmo problema (ex: "estoque zerado") gerou dezenas de alertas
+  // e a pessoa ja resolveu a causa raiz, um por um seria inviavel.
+  async function handleBulkResolve(group: { code: string; items: Alert[] }) {
+    const pending = group.items.filter((alert) => alert.status !== "resolved");
+    if (pending.length === 0) return;
+    setBulkResolving((prev) => new Set(prev).add(group.code));
+    try {
+      await Promise.all(pending.map((alert) => api(`/api/v1/alerts/${alert.id}`, { method: "PATCH", body: { status: "resolved" } })));
+      await loadAlerts();
+    } catch {
+      setError("Não foi possível resolver todos os alertas desse grupo.");
+    } finally {
+      setBulkResolving((prev) => {
+        const next = new Set(prev);
+        next.delete(group.code);
+        return next;
+      });
+    }
+  }
+
   return (
     <div className="max-w-4xl space-y-6">
       <div className="flex items-center gap-1 text-sm">
@@ -110,19 +133,27 @@ export function AlertasPanel() {
         {!loading &&
           groups.map((group) => {
             const isOpen = expanded.has(group.code);
+            const pendingCount = group.items.filter((alert) => alert.status !== "resolved").length;
+            const isBulkResolving = bulkResolving.has(group.code);
             return (
               <div key={group.code} className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-card">
-                <button
-                  type="button"
-                  onClick={() => toggleGroup(group.code)}
-                  className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left"
-                >
-                  <span className="flex items-center gap-2">
+                <div className="flex w-full items-center justify-between gap-2 px-4 py-3">
+                  <button type="button" onClick={() => toggleGroup(group.code)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
                     <span className="font-medium text-slate-800">{ALERT_CODE_LABELS[group.code] ?? group.code}</span>
                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">{group.items.length}</span>
-                  </span>
-                  <span className="text-slate-400">{isOpen ? "▾" : "▸"}</span>
-                </button>
+                    <span className="text-slate-400">{isOpen ? "▾" : "▸"}</span>
+                  </button>
+                  {canManage && pendingCount > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleBulkResolve(group)}
+                      disabled={isBulkResolving}
+                      className="shrink-0 text-xs font-medium text-brand-600 hover:underline disabled:opacity-50"
+                    >
+                      {isBulkResolving ? "Resolvendo…" : `Resolver todos (${pendingCount})`}
+                    </button>
+                  )}
+                </div>
 
                 {isOpen && (
                   <div className="space-y-2 border-t border-slate-100 p-3">
