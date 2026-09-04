@@ -4,7 +4,12 @@ import { createNotification } from "../notifications/service.js";
 
 export type AlertStatus = "open" | "resolved" | "muted";
 export type AlertSeverity = "low" | "medium" | "high" | "critical";
-type AlertCode = "no_sales_7d" | "price_drop" | "stock_low";
+// "account_sync_stale" e por conta conectada (sem listing_id, dedupe via
+// payload.accountId) -- fica fora de ListingAlertCode/ALERT_DEFINITIONS, que
+// sao especificos das 3 regras por anuncio, com sua propria logica em
+// evaluateAccountSyncAlerts mais abaixo.
+type ListingAlertCode = "no_sales_7d" | "price_drop" | "stock_low";
+type AlertCode = ListingAlertCode | "account_sync_stale";
 
 type AlertRow = {
   id: string;
@@ -127,7 +132,7 @@ const PRICE_DROP_THRESHOLD_PCT = 0.1;
 // sync da fase 1 ainda nao busca a API de visitas do Mercado Livre, entao
 // visits e sempre 0 -- nao ha "queda" real pra detectar, so ruido.
 const ALERT_DEFINITIONS: Record<
-  AlertCode,
+  ListingAlertCode,
   { severity: AlertSeverity; buildTitle: (listingTitle: string) => string; description: string; notificationLabel: string }
 > = {
   no_sales_7d: {
@@ -203,7 +208,7 @@ type AlertListingInfo = { id: string; title: string; external_id: string; permal
 
 async function syncAlertsForCode(
   companyId: string,
-  code: AlertCode,
+  code: ListingAlertCode,
   triggeringListingIds: Set<string>,
   listingsById: Map<string, AlertListingInfo>
 ) {
@@ -252,10 +257,116 @@ async function syncAlertsForCode(
   return { opened, resolvedCount: toResolveIds.length };
 }
 
+const SYNC_STALE_THRESHOLD_HOURS = 3;
+
+type StaleAccountInfo = { id: string; nickname: string; provider: "Mercado Livre" | "Magalu"; lastSyncedAt: string | null };
+
+async function fetchConnectedAccounts(companyId: string): Promise<StaleAccountInfo[]> {
+  const [mlResult, magaluResult] = await Promise.all([
+    supabaseAdmin.from("ml_accounts").select("id, nickname, last_synced_at").eq("company_id", companyId).eq("status", "connected"),
+    supabaseAdmin.from("magalu_accounts").select("id, nickname, last_synced_at").eq("company_id", companyId).eq("status", "connected")
+  ]);
+  const ml = (unwrap(mlResult) ?? []).map((row) => ({
+    id: row.id as string,
+    nickname: row.nickname as string,
+    provider: "Mercado Livre" as const,
+    lastSyncedAt: row.last_synced_at as string | null
+  }));
+  const magalu = (unwrap(magaluResult) ?? []).map((row) => ({
+    id: row.id as string,
+    nickname: row.nickname as string,
+    provider: "Magalu" as const,
+    lastSyncedAt: row.last_synced_at as string | null
+  }));
+  return [...ml, ...magalu];
+}
+
+// Regra a parte das 3 de cima: e por conta conectada, nao por anuncio, entao
+// nao tem listing_id -- guarda o id da conta em payload.accountId pra
+// dedupe/fechamento automatico (mesmo diff "abre o que e novo, resolve o que
+// parou de valer" das outras regras, so que chaveado por conta).
+async function evaluateAccountSyncAlerts(companyId: string) {
+  const accounts = await fetchConnectedAccounts(companyId);
+  const now = Date.now();
+  const staleAccounts = accounts.filter((account) => {
+    if (!account.lastSyncedAt) return true;
+    const ageHours = (now - new Date(account.lastSyncedAt).getTime()) / 3_600_000;
+    return ageHours >= SYNC_STALE_THRESHOLD_HOURS;
+  });
+
+  const existingOpen = unwrap(
+    await supabaseAdmin
+      .from("alerts")
+      .select("id, payload")
+      .eq("company_id", companyId)
+      .eq("code", "account_sync_stale")
+      .eq("status", "open")
+  );
+  const openByAccountId = new Map(
+    (existingOpen ?? [])
+      .map((row) => [(row.payload as Record<string, unknown> | null)?.accountId as string | undefined, row.id as string] as const)
+      .filter((entry): entry is [string, string] => Boolean(entry[0]))
+  );
+
+  const staleIds = new Set(staleAccounts.map((account) => account.id));
+  const toInsert = staleAccounts
+    .filter((account) => !openByAccountId.has(account.id))
+    .map((account) => ({
+      company_id: companyId,
+      listing_id: null,
+      code: "account_sync_stale" as const,
+      severity: "high" as const,
+      title: `Sincronização parada: ${account.nickname} (${account.provider})`,
+      description: `Essa conta não sincroniza há mais de ${SYNC_STALE_THRESHOLD_HOURS}h. Verifique em Configurações > Integrações se o token ainda é válido.`,
+      payload: { accountId: account.id, provider: account.provider, nickname: account.nickname }
+    }));
+
+  let opened: Array<{ id: string; title: string }> = [];
+  if (toInsert.length > 0) {
+    const result = await supabaseAdmin.from("alerts").insert(toInsert).select("id, title");
+    if (result.error) throw new Error(`Falha ao abrir alertas (account_sync_stale): ${result.error.message}`);
+    opened = (result.data ?? []) as Array<{ id: string; title: string }>;
+  }
+
+  const toResolveIds = Array.from(openByAccountId.entries())
+    .filter(([accountId]) => !staleIds.has(accountId))
+    .map(([, alertId]) => alertId);
+
+  if (toResolveIds.length > 0) {
+    const result = await supabaseAdmin
+      .from("alerts")
+      .update({ status: "resolved", resolved_at: new Date().toISOString() })
+      .in("id", toResolveIds);
+    if (result.error) throw new Error(`Falha ao resolver alertas (account_sync_stale): ${result.error.message}`);
+  }
+
+  if (opened.length > 0) {
+    const adminUserIds = await getActiveAdminUserIds(companyId);
+    for (const userId of adminUserIds) {
+      for (const alert of opened) {
+        await createNotification({
+          companyId,
+          userId,
+          type: "alert",
+          title: "Sincronização parada",
+          body: alert.title,
+          link: "/configuracoes",
+          metadata: { alertId: alert.id }
+        });
+      }
+    }
+  }
+
+  return { alertsOpened: opened.length, alertsResolved: toResolveIds.length };
+}
+
 // Le listing_daily_snapshot dos ultimos LOOKBACK_DAYS dias (nunca orders/
-// order_items direto) e aplica as 3 regras sobre anuncios ativos. Novos
+// order_items direto) e aplica as 3 regras sobre anuncios ativos, mais a
+// checagem de conta parada (independente de ter anuncio ou nao). Novos
 // alertas geram notificacao (fase 6) pra todo adm/master ativo da empresa.
 export async function evaluateAlertRulesForCompany(companyId: string, referenceDate: string) {
+  const accountSyncResult = await evaluateAccountSyncAlerts(companyId);
+
   const windowStart = new Date(`${referenceDate}T00:00:00Z`);
   windowStart.setUTCDate(windowStart.getUTCDate() - (LOOKBACK_DAYS - 1));
   const windowStartIso = windowStart.toISOString().slice(0, 10);
@@ -270,7 +381,7 @@ export async function evaluateAlertRulesForCompany(companyId: string, referenceD
   );
 
   if (listings.length === 0) {
-    return { alertsOpened: 0, alertsResolved: 0 };
+    return { alertsOpened: accountSyncResult.alertsOpened, alertsResolved: accountSyncResult.alertsResolved };
   }
 
   const listingsById = new Map(listings.map((listing) => [listing.id, listing]));
@@ -283,7 +394,7 @@ export async function evaluateAlertRulesForCompany(companyId: string, referenceD
     byListing.set(row.listing_id, list);
   }
 
-  const triggered: Record<AlertCode, Set<string>> = {
+  const triggered: Record<ListingAlertCode, Set<string>> = {
     no_sales_7d: new Set(),
     price_drop: new Set(),
     stock_low: new Set()
@@ -309,11 +420,11 @@ export async function evaluateAlertRulesForCompany(companyId: string, referenceD
     }
   }
 
-  let alertsOpened = 0;
-  let alertsResolved = 0;
-  const newlyOpened: Array<{ id: string; title: string; listing_id: string | null; code: AlertCode }> = [];
+  let alertsOpened = accountSyncResult.alertsOpened;
+  let alertsResolved = accountSyncResult.alertsResolved;
+  const newlyOpened: Array<{ id: string; title: string; listing_id: string | null; code: ListingAlertCode }> = [];
 
-  for (const code of Object.keys(triggered) as AlertCode[]) {
+  for (const code of Object.keys(triggered) as ListingAlertCode[]) {
     const result = await syncAlertsForCode(companyId, code, triggered[code], listingsById);
     alertsOpened += result.opened.length;
     alertsResolved += result.resolvedCount;

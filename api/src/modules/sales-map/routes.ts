@@ -29,7 +29,8 @@ const filtersSchema = z.object({
   abcCurve: z.enum(["A", "B", "C"]).optional(),
   hasAds: booleanQueryParam,
   hasPromotion: booleanQueryParam,
-  channel: z.enum(["mercado_livre", "magalu"]).default("mercado_livre")
+  channel: z.enum(["mercado_livre", "magalu"]).default("mercado_livre"),
+  listingId: z.string().uuid().optional()
 });
 
 const sortSchema = z.enum(["revenue", "unitsSold", "ordersCount", "avgTicket", "title"]).default("revenue");
@@ -84,7 +85,8 @@ export async function salesMapRoutes(app: FastifyInstance) {
         abcCurve: query.abcCurve,
         hasAds: query.hasAds,
         hasPromotion: query.hasPromotion,
-        channel: query.channel
+        channel: query.channel,
+        listingId: query.listingId
       },
       sort: sortField,
       sortDir,
@@ -114,7 +116,8 @@ export async function salesMapRoutes(app: FastifyInstance) {
         abcCurve: query.abcCurve,
         hasAds: query.hasAds,
         hasPromotion: query.hasPromotion,
-        channel: query.channel
+        channel: query.channel,
+        listingId: query.listingId
       },
       sort: sortField,
       sortDir,

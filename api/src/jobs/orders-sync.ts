@@ -8,7 +8,7 @@ import { getConnectedAccountsForCompany } from "../modules/integrations/mercado-
 import { refreshMlAccountAccessToken, type MlAccountRecord } from "../modules/integrations/mercado-livre/service.js";
 
 type MercadoLivreOrderItem = {
-  item?: { id?: string; seller_sku?: string | null };
+  item?: { id?: string; seller_sku?: string | null; variation_id?: number | string | null };
   quantity?: number;
   unit_price?: number;
 };
@@ -96,6 +96,13 @@ async function syncOrdersForAccount(account: MlAccountRecord, startDate: string,
             order_id: orderId,
             listing_id: listingIdByExternalId.get(item.item!.id!) ?? null,
             item_external_id: item.item!.id!,
+            // Pedidos com mais de uma variacao (cor/tamanho) do mesmo anuncio
+            // geram 2+ linhas com o mesmo item_external_id -- sem o
+            // variation_id elas ficam identicas pra constraint unica
+            // (company_id, order_id, item_external_id, variation_id) e o
+            // INSERT falha com "duplicate key". "" (nao null) pra bater com
+            // o default da coluna nos itens sem variacao.
+            variation_id: item.item?.variation_id != null ? String(item.item.variation_id) : "",
             quantity: Math.max(1, item.quantity ?? 1),
             unit_price: item.unit_price ?? null,
             gross_amount: Math.max(0, (item.unit_price ?? 0) * Math.max(1, item.quantity ?? 1)),
