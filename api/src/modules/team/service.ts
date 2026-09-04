@@ -1,5 +1,6 @@
 import { unwrap } from "../../lib/db.js";
 import { supabaseAdmin } from "../../lib/supabase.js";
+import { config } from "../../config.js";
 import type { AppTab, CompanyRole } from "../../types.js";
 
 type InvitableRole = Exclude<CompanyRole, "master">;
@@ -27,7 +28,11 @@ async function findOrInviteAuthUser(email: string, fullName?: string) {
   if (existing) return existing.id;
 
   const invited = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-    data: fullName ? { full_name: fullName } : undefined
+    data: fullName ? { full_name: fullName } : undefined,
+    // Sem isso o link do e-mail de convite cai no Site URL padrao do
+    // projeto Supabase (nao necessariamente esta app), e o usuario convidado
+    // nunca chega numa tela que aceite a sessao do convite e peca senha.
+    redirectTo: config.APP_WEB_URL ? `${config.APP_WEB_URL}/reset-password` : undefined
   });
   if (invited.error || !invited.data.user) {
     throw new Error(`Falha ao convidar usuario: ${invited.error?.message ?? "erro desconhecido"}`);
