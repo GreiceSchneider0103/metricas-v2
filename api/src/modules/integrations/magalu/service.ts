@@ -80,6 +80,12 @@ function runDetached(task: () => Promise<void>) {
 export async function handleOAuthCallback(input: { code: string; state: string }) {
   const { companyId, userId } = decodeOAuthState(input.state);
   const tokens = await exchangeAuthorizationCode(input.code);
+  // Diagnostico temporario (401 recorrente em fetchSellerProfile mesmo apos
+  // adicionar open:portfolio:read ao client via idm client add-scope): a
+  // propria resposta do token exchange ja diz quais escopos foram
+  // concedidos de fato -- confirma sem adivinhar se o escopo novo chegou a
+  // esse token especifico ou se o problema e outro.
+  console.log(`[magalu-integration] escopos concedidos no token: "${tokens.scope}"`);
   const profile = await fetchSellerProfile(tokens.access_token);
 
   const account = await upsertMagaluAccount({
