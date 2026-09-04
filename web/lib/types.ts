@@ -40,6 +40,25 @@ export type IntegrationStatus = {
   accounts: IntegrationAccount[];
 };
 
+export type SyncHealthAccount = {
+  id: string;
+  provider: "mercado_livre" | "magalu";
+  nickname: string;
+  status: string;
+  lastSyncedAt: string | null;
+};
+
+export type SyncHealthFailure = {
+  jobName: string;
+  createdAt: string;
+  errorMessage: string | null;
+};
+
+export type SyncHealth = {
+  accounts: SyncHealthAccount[];
+  failures: SyncHealthFailure[];
+};
+
 export type SalesMapItem = {
   listingId: string;
   externalId: string;
@@ -111,6 +130,7 @@ export type CalendarListing = {
   hasAds: boolean;
   hasPromotion: boolean;
   isFull: boolean;
+  channel: SalesChannel;
   sku: string | null;
   currentStock: number;
   hasOpenTask: boolean;

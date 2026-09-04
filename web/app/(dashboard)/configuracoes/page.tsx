@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase-client";
 import { PasswordInput } from "@/components/password-input";
 import { TeamPanel } from "@/components/settings/team-panel";
 import { IntegrationsPanel } from "@/components/settings/integrations-panel";
+import { SyncHealthPanel } from "@/components/settings/sync-health-panel";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,8 @@ type CompanyDetail = { id: string; name: string; slug: string; created_at: strin
 const TABS = [
   { id: "geral", label: "Geral" },
   { id: "equipe", label: "Equipe" },
-  { id: "integracoes", label: "Integrações" }
+  { id: "integracoes", label: "Integrações" },
+  { id: "sincronizacao", label: "Sincronização" }
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -154,6 +156,7 @@ export default function ConfiguracoesPage() {
       {!isConfigOnlyUser && tab === "geral" && <GeralPanel />}
       {!isConfigOnlyUser && tab === "equipe" && <TeamPanel />}
       {tab === "integracoes" && <IntegrationsPanel />}
+      {!isConfigOnlyUser && tab === "sincronizacao" && <SyncHealthPanel />}
     </div>
   );
 }

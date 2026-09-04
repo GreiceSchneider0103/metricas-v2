@@ -13,7 +13,8 @@ export const LISTING_TYPE_LABELS: Record<string, string> = {
 export const ALERT_CODE_LABELS: Record<string, string> = {
   no_sales_7d: "Sem vendas há 7 dias",
   price_drop: "Queda de preço",
-  stock_low: "Estoque baixo"
+  stock_low: "Estoque baixo",
+  account_sync_stale: "Sincronização parada"
 };
 
 // Titulos de anuncio do Mercado Livre costumam ter 10+ palavras -- em tabelas

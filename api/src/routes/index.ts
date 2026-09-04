@@ -11,6 +11,7 @@ import { taskRoutes } from "../modules/tasks/routes.js";
 import { goalRoutes } from "../modules/goals/routes.js";
 import { alertRoutes } from "../modules/alerts/routes.js";
 import { notificationRoutes } from "../modules/notifications/routes.js";
+import { syncHealthRoutes } from "../modules/sync-health/routes.js";
 
 export async function registerRoutes(app: FastifyInstance) {
   await app.register(
@@ -35,6 +36,7 @@ export async function registerRoutes(app: FastifyInstance) {
       await goalRoutes(protectedScope);
       await alertRoutes(protectedScope);
       await notificationRoutes(protectedScope);
+      await syncHealthRoutes(protectedScope);
     },
     { prefix: "/api/v1" }
   );

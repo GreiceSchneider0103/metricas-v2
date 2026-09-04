@@ -167,7 +167,9 @@ export function ListingDrawer({
         <div className="mb-4 flex items-start justify-between gap-2">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">{listing.title}</h2>
-            <p className="text-xs text-slate-400">{listing.externalId}</p>
+            {/* MLB e conceito exclusivo do Mercado Livre -- mesma regra ja
+                aplicada na tabela do Mapa de Vendas (anuncioMeta). */}
+            {listing.channel !== "magalu" && <p className="text-xs text-slate-400">{listing.externalId}</p>}
             {listing.sku && <p className="text-xs text-slate-400">SKU: {listing.sku}</p>}
           </div>
           <button onClick={onClose} className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700">

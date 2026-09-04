@@ -2,13 +2,19 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useApi, useAuth } from "@/lib/auth-context";
-import type { Alert } from "@/lib/types";
+import type { Alert, CalendarListing, SalesMapCalendarResponse } from "@/lib/types";
 import { StatusBadge } from "@/components/status-badge";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { ALERT_CODE_LABELS } from "@/lib/labels";
+import { ListingDrawer } from "@/components/listing-drawer";
+
+function currentMonth() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
 
 const STATUS_FILTERS = ["open", "resolved", "muted", ""] as const;
 
@@ -44,6 +50,8 @@ export function AlertasPanel({ onDataChanged }: { onDataChanged?: () => void } =
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [bulkResolving, setBulkResolving] = useState<Set<string>>(new Set());
+  const [selectedListing, setSelectedListing] = useState<CalendarListing | null>(null);
+  const [loadingListingId, setLoadingListingId] = useState<string | null>(null);
 
   async function loadAlerts() {
     setLoading(true);
@@ -114,6 +122,29 @@ export function AlertasPanel({ onDataChanged }: { onDataChanged?: () => void } =
     }
   }
 
+  // Reaproveita a mesma gaveta de detalhe do Mapa de Vendas -- busca o
+  // anuncio pelo id (endpoint aceita filtrar por listingId, sem precisar
+  // saber o canal de antemao) no mes corrente, ja que alertas nao carregam o
+  // objeto CalendarListing completo (dias, metas, etc.) de fabrica.
+  async function handleOpenListing(alert: Alert) {
+    if (!alert.listingId) return;
+    setLoadingListingId(alert.id);
+    try {
+      const result = await api<SalesMapCalendarResponse>("/api/v1/sales-map/calendar", {
+        query: { month: currentMonth(), listingId: alert.listingId, page: 1, pageSize: 1 }
+      });
+      if (result.items[0]) {
+        setSelectedListing(result.items[0]);
+      } else {
+        showToast("Anúncio não encontrado.", "error");
+      }
+    } catch {
+      showToast("Não foi possível abrir o anúncio.", "error");
+    } finally {
+      setLoadingListingId(null);
+    }
+  }
+
   return (
     <div className="max-w-4xl space-y-6">
       <div className="flex items-center gap-1 text-sm">
@@ -171,7 +202,18 @@ export function AlertasPanel({ onDataChanged }: { onDataChanged?: () => void } =
                       <Card key={alert.id} className="flex items-center justify-between">
                         <div>
                           <div className="flex items-center gap-2">
-                            <p className="font-medium text-slate-800">{alert.title}</p>
+                            {alert.listingId ? (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenListing(alert)}
+                                disabled={loadingListingId === alert.id}
+                                className="font-medium text-brand-700 hover:underline disabled:opacity-60"
+                              >
+                                {loadingListingId === alert.id ? "Abrindo…" : alert.title}
+                              </button>
+                            ) : (
+                              <p className="font-medium text-slate-800">{alert.title}</p>
+                            )}
                             <StatusBadge value={alert.severity} label={SEVERITY_LABELS[alert.severity]} />
                           </div>
                           {alert.description && <p className="mt-1 text-sm text-slate-500">{alert.description}</p>}
@@ -210,6 +252,15 @@ export function AlertasPanel({ onDataChanged }: { onDataChanged?: () => void } =
             );
           })}
       </div>
+
+      {selectedListing && (
+        <ListingDrawer
+          listing={selectedListing}
+          month={currentMonth()}
+          onClose={() => setSelectedListing(null)}
+          onGoalSaved={() => setSelectedListing(null)}
+        />
+      )}
     </div>
   );
 }

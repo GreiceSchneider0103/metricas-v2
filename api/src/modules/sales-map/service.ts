@@ -11,6 +11,7 @@ export type SalesMapFilters = {
   hasAds?: boolean;
   hasPromotion?: boolean;
   channel?: "mercado_livre" | "magalu";
+  listingId?: string;
 };
 
 export type SalesMapSortField = "revenue" | "unitsSold" | "ordersCount" | "avgTicket" | "title";
@@ -31,6 +32,7 @@ type ListingRow = {
   has_ads: boolean;
   has_promotion: boolean;
   is_full: boolean;
+  channel: "mercado_livre" | "magalu";
   attributes: Record<string, string | null> | null;
 };
 
@@ -69,6 +71,7 @@ type SalesMapRow = {
   hasAds: boolean;
   hasPromotion: boolean;
   isFull: boolean;
+  channel: "mercado_livre" | "magalu";
   sku: string | null;
   ordersCount: number;
   unitsSold: number;
@@ -116,10 +119,11 @@ async function fetchFilteredListings(companyId: string, filters: SalesMapFilters
     let query = supabaseAdmin
       .from("listings")
       .select(
-        "id, external_id, title, category_name, status, permalink, listing_type, logistic_type, is_catalog, abc_curve, price, available_quantity, has_ads, has_promotion, is_full, attributes"
+        "id, external_id, title, category_name, status, permalink, listing_type, logistic_type, is_catalog, abc_curve, price, available_quantity, has_ads, has_promotion, is_full, channel, attributes"
       )
       .eq("company_id", companyId);
 
+    if (filters.listingId) query = query.eq("id", filters.listingId);
     if (filters.search) {
       const escapedForIlike = filters.search.replace(/[%_\\]/g, (match) => `\\${match}`);
       const pattern = escapePostgrestOrValue(`%${escapedForIlike}%`);
@@ -132,9 +136,12 @@ async function fetchFilteredListings(companyId: string, filters: SalesMapFilters
     if (filters.abcCurve) query = query.eq("abc_curve", filters.abcCurve);
     if (filters.hasAds !== undefined) query = query.eq("has_ads", filters.hasAds);
     if (filters.hasPromotion !== undefined) query = query.eq("has_promotion", filters.hasPromotion);
-    // Sem filtro explicito, mantem o comportamento de sempre (so ML) -- nao
-    // muda nada pra nenhum chamador que ainda nao manda "channel".
-    query = query.eq("channel", filters.channel ?? "mercado_livre");
+    // Filtro por listingId (id ja e globalmente unico) dispensa o de canal --
+    // aplica-lo travaria a busca se o chamador nao souber de antemao se o
+    // anuncio e ML ou Magalu (ex.: abrir a gaveta de detalhe a partir de um
+    // alerta). Sem listingId, mantem o comportamento de sempre (so ML por
+    // padrao) -- nao muda nada pra nenhum chamador que ja manda "channel".
+    if (!filters.listingId) query = query.eq("channel", filters.channel ?? "mercado_livre");
 
     return query.range(from, to);
   });
@@ -217,6 +224,7 @@ export async function getSalesMap(input: {
       hasAds: listing.has_ads,
       hasPromotion: listing.has_promotion,
       isFull: listing.is_full,
+      channel: listing.channel,
       sku: extractSku(listing.attributes),
       ordersCount: t.ordersCount,
       unitsSold: t.unitsSold,
@@ -503,6 +511,7 @@ export async function getSalesMapCalendar(input: {
       hasAds: listing.has_ads,
       hasPromotion: listing.has_promotion,
       isFull: listing.is_full,
+      channel: listing.channel,
       sku: extractSku(listing.attributes),
       currentStock: listing.available_quantity ?? 0,
       hasOpenTask: listingIdsWithOpenTask.has(listing.id),
