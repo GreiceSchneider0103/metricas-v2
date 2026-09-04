@@ -29,7 +29,16 @@ async function parseResponse<T>(response: Response): Promise<T> {
     const message =
       typeof body?.message === "string" ? body.message : `Magalu request failed with status ${response.status}`;
     const error = new Error(message);
-    (error as Error & { status?: number }).status = response.status;
+    // "message" sozinho (ex: "Unauthorized") nao diz se falta escopo, se o
+    // token expirou, ou outra coisa -- guarda o corpo inteiro da resposta e
+    // o header WWW-Authenticate (onde servidores OAuth costumam mandar
+    // error="insufficient_scope"/error_description=...) pra aparecer
+    // completo no log de erro (request.log.error ja loga qualquer campo
+    // extra do Error, ver magalu/routes.ts).
+    (error as Error & { status?: number; body?: unknown; wwwAuthenticate?: string | null }).status = response.status;
+    (error as Error & { status?: number; body?: unknown; wwwAuthenticate?: string | null }).body = body;
+    (error as Error & { status?: number; body?: unknown; wwwAuthenticate?: string | null }).wwwAuthenticate =
+      response.headers.get("www-authenticate");
     throw error;
   }
 
