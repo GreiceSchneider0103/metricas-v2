@@ -79,6 +79,7 @@ export async function magaluPublicRoutes(app: FastifyInstance) {
         .type("text/html; charset=utf-8")
         .send(callbackHtml("success", `Conta ${result.account.nickname} conectada! Sincronizando produtos em segundo plano...`));
     } catch (error) {
+      request.log.error({ err: error }, "[magalu-integration] callback OAuth falhou");
       const message = error instanceof Error ? error.message : "Falha ao concluir OAuth da Magalu.";
       return reply.code(400).type("text/html; charset=utf-8").send(callbackHtml("error", message));
     }
