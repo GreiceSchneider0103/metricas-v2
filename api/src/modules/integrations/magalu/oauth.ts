@@ -73,8 +73,12 @@ export function decodeOAuthState(state: string): AuthorizationState {
 
 // Escopos minimos pro que o Mapa de Vendas precisa: consultar SKUs, precos,
 // estoques e pedidos. Nao inclui os de escrita nem os de logistica/SAC/chat
-// (fora do escopo hoje).
+// (fora do escopo hoje). "open:portfolio:read" (perfil da loja) e separado
+// dos escopos granulares de SKU/preco/estoque -- sem ele, GET
+// /seller/v1/portfolios/me (usado pra descobrir o seller_id na conexao)
+// responde 401 mesmo com token valido.
 const REQUIRED_SCOPES = [
+  "open:portfolio:read",
   "open:portfolio-skus-seller:read",
   "open:portfolio-prices-seller:read",
   "open:portfolio-stocks-seller:read",
