@@ -36,15 +36,23 @@ function mapAccessRequest(row: AccessRequestRow) {
 export async function createAccessRequest(input: { userId: string }) {
   const company = await getOnboardingCompany();
 
+  // Checa QUALQUER empresa ativa, nao so a de onboarding: quem aprova manda
+  // a pessoa pra empresa de verdade dela (approveAccessRequest), entao depois
+  // de aprovado o usuario nunca fica membro da empresa de onboarding em si.
+  // Checar so ali deixava esse guard sempre falso pra gente ja aprovada, e um
+  // reload da tela de espera (antes da lista de empresas do front atualizar)
+  // criava um pedido pendente novo do zero -- aparecendo de novo pra revisao
+  // mesmo ja tendo acesso.
   const alreadyMember = unwrap(
     await supabaseAdmin
       .from("company_users")
       .select("id")
-      .eq("company_id", company.id)
       .eq("user_id", input.userId)
+      .eq("is_active", true)
+      .limit(1)
       .maybeSingle()
   );
-  if (alreadyMember) throw new Error("Usuario ja pertence a esta empresa");
+  if (alreadyMember) throw new Error("Usuario ja pertence a uma empresa");
 
   // O unique index em access_requests so cobre status = 'pending' (permite
   // pedir de novo apos rejeicao), entao um upsert com ON CONFLICT(user_id,
