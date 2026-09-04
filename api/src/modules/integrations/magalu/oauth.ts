@@ -80,7 +80,7 @@ const REQUIRED_SCOPES = [
   "open:portfolio-prices-seller:read",
   "open:portfolio-stocks-seller:read",
   "open:order-order-seller:read",
-  "open:portfolio-seller:read"
+  "open:portfolio:read"
 ].join(" ");
 
 export function isMagaluConfigured() {

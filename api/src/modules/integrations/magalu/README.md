@@ -20,7 +20,10 @@ Client OAuth ainda nao existe. Passos:
 
 1. Instalar o IDM CLI (https://developers.magalu.com/docs/first-steps/create-an-application/create-application)
 2. `./idm login`
-3. `./idm client create --name "Go Metriks" --redirect-uris "https://metricas-v2-api.onrender.com/api/v1/integrations/magalu/callback" --scopes "open:portfolio-skus-seller:read open:portfolio-prices-seller:read open:portfolio-stocks-seller:read open:order-order-seller:read" --scopes-default "open:portfolio-skus-seller:read open:portfolio-prices-seller:read open:portfolio-stocks-seller:read open:order-order-seller:read" --terms-of-use "<url>" --privacy-term "<url>" --access-token-exp 7200 --always-require-login false`
+3. `./idm client create --name "Go Metriks" --redirect-uris "https://metricas-v2-api.onrender.com/api/v1/integrations/magalu/callback" --scopes "open:portfolio-skus-seller:read open:portfolio-prices-seller:read open:portfolio-stocks-seller:read open:order-order-seller:read open:portfolio:read" --scopes-default "open:portfolio-skus-seller:read open:portfolio-prices-seller:read open:portfolio-stocks-seller:read open:order-order-seller:read open:portfolio:read" --terms-of-use "<url>" --privacy-term "<url>" --access-token-exp 7200 --always-require-login false`
+   - `open:portfolio:read` e o escopo usado por `fetchSellerProfile` (GET `/seller/v1/portfolios/me`)
+     pra descobrir o `seller.id`/nome da loja no callback do OAuth. Se o client ja existir sem ele,
+     adicione com `./idm client add-scope -i <client-uuid> -s "open:portfolio:read"`.
 4. Guardar `client_id`/`client_secret` (secret so aparece uma vez).
 5. Configurar no Render: `MAGALU_CLIENT_ID`, `MAGALU_CLIENT_SECRET`, `MAGALU_REDIRECT_URI` (a mesma URL do `--redirect-uris` acima).
 
