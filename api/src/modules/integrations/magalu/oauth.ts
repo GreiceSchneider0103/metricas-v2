@@ -72,13 +72,15 @@ export function decodeOAuthState(state: string): AuthorizationState {
 }
 
 // Escopos minimos pro que o Mapa de Vendas precisa: consultar SKUs, precos,
-// estoques e pedidos. Nao inclui os de escrita nem os de logistica/SAC/chat
-// (fora do escopo hoje).
+// estoques, pedidos e o perfil da loja (usado por fetchSellerProfile pra
+// pegar seller.id/nome em /seller/v1/portfolios/me). Nao inclui os de
+// escrita nem os de logistica/SAC/chat (fora do escopo hoje).
 const REQUIRED_SCOPES = [
   "open:portfolio-skus-seller:read",
   "open:portfolio-prices-seller:read",
   "open:portfolio-stocks-seller:read",
-  "open:order-order-seller:read"
+  "open:order-order-seller:read",
+  "open:portfolio-seller:read"
 ].join(" ");
 
 export function isMagaluConfigured() {
