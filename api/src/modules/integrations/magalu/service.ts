@@ -80,12 +80,16 @@ function runDetached(task: () => Promise<void>) {
 export async function handleOAuthCallback(input: { code: string; state: string }) {
   const { companyId, userId } = decodeOAuthState(input.state);
   const tokens = await exchangeAuthorizationCode(input.code);
-  // Diagnostico temporario (401 recorrente em fetchSellerProfile mesmo apos
-  // adicionar open:portfolio:read ao client via idm client add-scope): a
-  // propria resposta do token exchange ja diz quais escopos foram
-  // concedidos de fato -- confirma sem adivinhar se o escopo novo chegou a
-  // esse token especifico ou se o problema e outro.
-  console.log(`[magalu-integration] escopos concedidos no token: "${tokens.scope}"`);
+  // Diagnostico temporario (401 recorrente em fetchSellerProfile mesmo com
+  // open:portfolio:read confirmado no token -- ja descartado como causa em
+  // duas tentativas). Hipotese atual: a API usa multi-tenant de verdade
+  // (login pedido com choose_tenants=true; "x-tenant-id" e o nome oficial
+  // do header de tenant nas APIs da Magalu) e pode exigir um tenant_id que
+  // o token exchange ja devolve num campo que OAuthTokenResponse nao
+  // declara -- loga o corpo inteiro (exceto os proprios tokens) pra
+  // confirmar sem adivinhar.
+  const { access_token: _at, refresh_token: _rt, ...tokensWithoutSecrets } = tokens as OAuthTokenResponse & Record<string, unknown>;
+  console.log(`[magalu-integration] resposta do token exchange (sem tokens): ${JSON.stringify(tokensWithoutSecrets)}`);
   const profile = await fetchSellerProfile(tokens.access_token);
 
   const account = await upsertMagaluAccount({
