@@ -77,19 +77,31 @@ function runDetached(task: () => Promise<void>) {
   });
 }
 
+// Diagnostico temporario -- ver comentario em handleOAuthCallback.
+function decodeJwtPayload(jwt: string): unknown {
+  const parts = jwt.split(".");
+  if (parts.length !== 3) return null;
+  try {
+    return JSON.parse(Buffer.from(parts[1], "base64url").toString("utf-8"));
+  } catch {
+    return null;
+  }
+}
+
 export async function handleOAuthCallback(input: { code: string; state: string }) {
   const { companyId, userId } = decodeOAuthState(input.state);
   const tokens = await exchangeAuthorizationCode(input.code);
   // Diagnostico temporario (401 recorrente em fetchSellerProfile mesmo com
-  // open:portfolio:read confirmado no token -- ja descartado como causa em
-  // duas tentativas). Hipotese atual: a API usa multi-tenant de verdade
-  // (login pedido com choose_tenants=true; "x-tenant-id" e o nome oficial
-  // do header de tenant nas APIs da Magalu) e pode exigir um tenant_id que
-  // o token exchange ja devolve num campo que OAuthTokenResponse nao
-  // declara -- loga o corpo inteiro (exceto os proprios tokens) pra
-  // confirmar sem adivinhar.
-  const { access_token: _at, refresh_token: _rt, ...tokensWithoutSecrets } = tokens as OAuthTokenResponse & Record<string, unknown>;
-  console.log(`[magalu-integration] resposta do token exchange (sem tokens): ${JSON.stringify(tokensWithoutSecrets)}`);
+  // open:portfolio:read confirmado no token). Ja descartadas: escopo faltando
+  // (confirmado presente 2x) e tenant_id no corpo do token exchange (corpo
+  // so tem token_type/expires_in/scope/created_at -- confirmado em prod
+  // 08/09). A conta e multi-tenant de verdade (2 tenants visiveis em
+  // id.magalu.com/consents: um "person" e um "organization"), entao a
+  // proxima hipotese e que o tenant_id esteja dentro do proprio access_token
+  // (JWT auto-descritivo) -- decodifica so o payload (nao loga o token
+  // inteiro, so os claims) pra confirmar sem adivinhar.
+  const jwtPayload = decodeJwtPayload(tokens.access_token);
+  console.log(`[magalu-integration] claims do access_token: ${JSON.stringify(jwtPayload)}`);
   const profile = await fetchSellerProfile(tokens.access_token);
 
   const account = await upsertMagaluAccount({
