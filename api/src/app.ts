@@ -51,12 +51,19 @@ export async function buildApp() {
     }
   });
 
-  app.setErrorHandler((rawError, _request, reply) => {
+  app.setErrorHandler((rawError, request, reply) => {
     if (rawError instanceof ZodError) {
       return reply.status(400).send({ statusCode: 400, error: "Bad Request", message: rawError.errors });
     }
     const error = rawError as Error & { statusCode?: number };
     const statusCode = typeof error.statusCode === "number" ? error.statusCode : 500;
+    // O handler global nao logava nada antes de responder -- todo 500 virava
+    // uma caixa-preta (rota completava com status 500 no log de request, mas
+    // sem nenhum log de erro correspondente pra achar a causa real). Ficou
+    // evidente ao investigar o 500 de /jobs/magalu-orders-backfill.
+    if (statusCode >= 500) {
+      request.log.error({ err: rawError }, "unhandled error");
+    }
     reply.status(statusCode).send({
       statusCode,
       error: error.name || "Error",
