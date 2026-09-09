@@ -1,5 +1,6 @@
 import { config } from "../../../config.js";
 import { unwrap } from "../../../lib/db.js";
+import { logger } from "../../../lib/logger.js";
 import { supabaseAdmin } from "../../../lib/supabase.js";
 import { magaluGetWithRetry } from "./client.js";
 import {
@@ -73,35 +74,13 @@ export async function markAccountStatus(accountId: string, status: string, lastS
 // "syncing"; o frontend acompanha via GET /integrations/magalu.
 function runDetached(task: () => Promise<void>) {
   void task().catch((error) => {
-    console.error("[magalu-integration] tarefa em segundo plano falhou:", error instanceof Error ? error.stack : error);
+    logger.error({ err: error }, "[magalu-integration] tarefa em segundo plano falhou");
   });
-}
-
-// Diagnostico temporario -- ver comentario em handleOAuthCallback.
-function decodeJwtPayload(jwt: string): unknown {
-  const parts = jwt.split(".");
-  if (parts.length !== 3) return null;
-  try {
-    return JSON.parse(Buffer.from(parts[1], "base64url").toString("utf-8"));
-  } catch {
-    return null;
-  }
 }
 
 export async function handleOAuthCallback(input: { code: string; state: string }) {
   const { companyId, userId } = decodeOAuthState(input.state);
   const tokens = await exchangeAuthorizationCode(input.code);
-  // Diagnostico temporario (401 recorrente em fetchSellerProfile mesmo com
-  // open:portfolio:read confirmado no token). Ja descartadas: escopo faltando
-  // (confirmado presente 2x) e tenant_id no corpo do token exchange (corpo
-  // so tem token_type/expires_in/scope/created_at -- confirmado em prod
-  // 08/09). A conta e multi-tenant de verdade (2 tenants visiveis em
-  // id.magalu.com/consents: um "person" e um "organization"), entao a
-  // proxima hipotese e que o tenant_id esteja dentro do proprio access_token
-  // (JWT auto-descritivo) -- decodifica so o payload (nao loga o token
-  // inteiro, so os claims) pra confirmar sem adivinhar.
-  const jwtPayload = decodeJwtPayload(tokens.access_token);
-  console.log(`[magalu-integration] claims do access_token: ${JSON.stringify(jwtPayload)}`);
   const profile = await fetchSellerProfile(tokens.access_token);
 
   const account = await upsertMagaluAccount({
@@ -118,7 +97,7 @@ export async function handleOAuthCallback(input: { code: string; state: string }
       await syncSkusForAccount(account as MagaluAccountForSync, tokens.access_token);
       await markAccountStatus(account.id, "connected", new Date().toISOString());
     } catch (error) {
-      console.error(`[magalu-integration] sync inicial falhou para conta ${account.id}:`, error);
+      logger.error({ err: error, accountId: account.id }, "[magalu-integration] sync inicial falhou");
       await markAccountStatus(account.id, "sync_failed");
     }
   });
@@ -222,7 +201,7 @@ export async function syncConnectedMagaluAccountsListings(companyId: string) {
       accountsProcessed += 1;
       await markAccountStatus(account.id, "connected", new Date().toISOString());
     } catch (error) {
-      console.error(`[magalu-integration] sync falhou para conta ${account.id}:`, error);
+      logger.error({ err: error, accountId: account.id }, "[magalu-integration] sync falhou");
       if (isDefinitiveAuthError(error)) {
         await markAccountStatus(account.id, "sync_failed");
       }

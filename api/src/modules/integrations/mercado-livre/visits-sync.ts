@@ -1,4 +1,5 @@
 import { config } from "../../../config.js";
+import { logger } from "../../../lib/logger.js";
 import { mlGetWithRetry } from "./client.js";
 
 type MercadoLivreVisitsWindow = {
@@ -46,12 +47,7 @@ export async function fetchVisitsForItem(accessToken: string, externalId: string
     }
     return byDate;
   } catch (error) {
-    console.warn("[ml-visits-sync] falha ao buscar visitas do item", {
-      externalId,
-      from,
-      to,
-      error: error instanceof Error ? error.message : String(error)
-    });
+    logger.warn({ err: error, externalId, from, to }, "[ml-visits-sync] falha ao buscar visitas do item");
     return new Map<string, number>();
   }
 }

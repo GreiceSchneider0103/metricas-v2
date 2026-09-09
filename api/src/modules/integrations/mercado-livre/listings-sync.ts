@@ -1,5 +1,6 @@
 import { config } from "../../../config.js";
 import { chunk, unwrap } from "../../../lib/db.js";
+import { logger } from "../../../lib/logger.js";
 import { supabaseAdmin } from "../../../lib/supabase.js";
 import { mlGetWithRetry } from "./client.js";
 
@@ -104,10 +105,7 @@ async function fetchActiveAdsItemIds(accessToken: string, advertiserId: string, 
       offset += limit;
     }
   } catch (error) {
-    console.warn("[ml-listings-sync] falha ao buscar Product Ads ativos", {
-      advertiserId,
-      error: error instanceof Error ? error.message : String(error)
-    });
+    logger.warn({ err: error, advertiserId }, "[ml-listings-sync] falha ao buscar Product Ads ativos");
   }
 
   return activeIds;
@@ -223,7 +221,7 @@ export async function syncListingsForAccount(account: MlAccountForSync, accessTo
     const batchListings = await Promise.all(
       batch.map((itemId) =>
         fetchListing(accessToken, itemId).catch((error) => {
-          console.error(`[ml-listings-sync] falha ao buscar item ${itemId}:`, error instanceof Error ? error.message : error);
+          logger.error({ err: error, itemId }, "[ml-listings-sync] falha ao buscar item");
           return null;
         })
       )
