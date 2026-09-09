@@ -1,6 +1,7 @@
 import { getSaoPauloTodayIso, shiftIsoDate } from "../lib/dates.js";
 import { chunk, fetchAllPages, unwrap } from "../lib/db.js";
 import { withJobRun } from "../lib/job-runs.js";
+import { logger } from "../lib/logger.js";
 import { supabaseAdmin } from "../lib/supabase.js";
 
 type ListingRow = {
@@ -299,7 +300,7 @@ export async function runListingDailySnapshotAggregateRangeJob(companyId: string
       // intervalo -- isso ja aconteceu de verdade: um unico dia com falha
       // interrompia a reagregacao do mes inteiro no meio, sem processar os
       // dias seguintes e sem nenhum aviso alem do job_run individual falho.
-      console.error(`[listing-daily-snapshot-aggregate] falha ao agregar ${date}:`, error instanceof Error ? error.message : error);
+      logger.error({ err: error, date }, "[listing-daily-snapshot-aggregate] falha ao agregar");
       failedDates.push(date);
     }
     date = shiftIsoDate(date, 1);

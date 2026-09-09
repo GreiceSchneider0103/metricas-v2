@@ -1,4 +1,5 @@
 import { unwrap } from "../../../lib/db.js";
+import { logger } from "../../../lib/logger.js";
 import { supabaseAdmin } from "../../../lib/supabase.js";
 import {
   buildAuthorizationUrl,
@@ -83,7 +84,7 @@ export async function markAccountStatus(accountId: string, status: string, lastS
 // "connected" via GET /integrations/mercado-livre.
 function runDetached(task: () => Promise<void>) {
   void task().catch((error) => {
-    console.error("[ml-integration] tarefa em segundo plano falhou:", error instanceof Error ? error.stack : error);
+    logger.error({ err: error }, "[ml-integration] tarefa em segundo plano falhou");
   });
 }
 
@@ -108,7 +109,7 @@ export async function handleOAuthCallback(input: { code: string; state: string }
       await syncListingsForAccount(account as MlAccountForSync, tokens.access_token);
       await markAccountStatus(account.id, "connected", new Date().toISOString());
     } catch (error) {
-      console.error(`[ml-integration] sync inicial falhou para conta ${account.id}:`, error);
+      logger.error({ err: error, accountId: account.id }, "[ml-integration] sync inicial falhou");
       await markAccountStatus(account.id, "sync_failed");
     }
   });
@@ -214,7 +215,7 @@ export async function syncConnectedAccountsListings(companyId: string) {
       accountsProcessed += 1;
       await markAccountStatus(account.id, "connected", new Date().toISOString());
     } catch (error) {
-      console.error(`[ml-integration] sync falhou para conta ${account.id}:`, error);
+      logger.error({ err: error, accountId: account.id }, "[ml-integration] sync falhou");
       if (isDefinitiveAuthError(error)) {
         await markAccountStatus(account.id, "sync_failed");
       }

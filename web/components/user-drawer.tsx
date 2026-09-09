@@ -61,8 +61,8 @@ export function UserDrawer({
       await api(`/api/v1/team/users/${member.userId}/profile`, { method: "PATCH", body: { fullName } });
       setNameSaved(true);
       onUpdated();
-    } catch {
-      setError("Não foi possível salvar o nome.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível salvar o nome.");
     } finally {
       setSavingName(false);
     }
@@ -84,8 +84,8 @@ export function UserDrawer({
       });
       if (resetError) throw resetError;
       setResetSent(true);
-    } catch {
-      setError("Não foi possível enviar o link de redefinição de senha.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível enviar o link de redefinição de senha.");
     } finally {
       setSendingReset(false);
     }
@@ -103,8 +103,8 @@ export function UserDrawer({
         setMemberships(result.items);
       }
       onUpdated();
-    } catch {
-      setError("Não foi possível salvar essa alteração.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível salvar essa alteração.");
     }
   }
 
@@ -391,8 +391,8 @@ function AddMembershipForm({ userEmail, onAdded }: { userEmail: string | null; o
       setSelectedCompany(null);
       setCompanyQuery("");
       onAdded();
-    } catch {
-      setError("Não foi possível adicionar a essa empresa.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível adicionar a essa empresa.");
     } finally {
       setSubmitting(false);
     }

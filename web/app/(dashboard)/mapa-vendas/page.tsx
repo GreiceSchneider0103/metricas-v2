@@ -215,8 +215,8 @@ export default function MapaVendasPage() {
       ]);
       setData(calendarResult);
       setSummary(summaryResult.summary);
-    } catch {
-      setError("Não foi possível carregar o mapa de vendas.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível carregar o mapa de vendas.");
     } finally {
       setLoading(false);
     }
@@ -259,9 +259,13 @@ export default function MapaVendasPage() {
       await api("/api/v1/jobs/visits-backfill", { method: "POST", body: { from, to } });
       await load();
       showToast("Dados atualizados.", "success");
-    } catch {
-      setError("Falha ao atualizar os dados. Algumas etapas podem ter sido concluídas -- tente de novo.");
-      showToast("Falha ao atualizar os dados.", "error");
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Falha ao atualizar os dados. Algumas etapas podem ter sido concluídas -- tente de novo.";
+      setError(message);
+      showToast(message, "error");
     } finally {
       setRefreshing(false);
       setRefreshStage(null);
@@ -287,9 +291,10 @@ export default function MapaVendasPage() {
       });
       exportCalendarCsv(result.items, activeChannel, month);
       showToast("CSV exportado.", "success");
-    } catch {
-      setError("Não foi possível exportar o CSV.");
-      showToast("Não foi possível exportar o CSV.", "error");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Não foi possível exportar o CSV.";
+      setError(message);
+      showToast(message, "error");
     } finally {
       setExporting(false);
     }

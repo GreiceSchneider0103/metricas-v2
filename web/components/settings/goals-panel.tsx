@@ -68,8 +68,8 @@ export function GoalsPanel() {
       setProgressByGoal(
         Object.fromEntries(progressEntries.filter((entry): entry is [string, GoalProgress] => entry !== null))
       );
-    } catch {
-      setError("Não foi possível carregar as metas.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível carregar as metas.");
     } finally {
       setLoading(false);
     }
@@ -92,8 +92,8 @@ export function GoalsPanel() {
       setName("");
       setTargetValue("");
       await loadGoals();
-    } catch {
-      setError("Não foi possível criar a meta.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível criar a meta.");
     } finally {
       setCreating(false);
     }
@@ -207,8 +207,8 @@ function GoalCard({
       });
       setEditing(false);
       onChanged();
-    } catch {
-      setError("Não foi possível salvar as alterações.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível salvar as alterações.");
     } finally {
       setSaving(false);
     }
@@ -227,9 +227,10 @@ function GoalCard({
       await api(`/api/v1/goals/${goal.id}`, { method: "DELETE" });
       showToast("Meta excluída.", "success");
       onChanged();
-    } catch {
-      setError("Não foi possível excluir essa meta.");
-      showToast("Não foi possível excluir essa meta.", "error");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Não foi possível excluir essa meta.";
+      setError(message);
+      showToast(message, "error");
       setDeleting(false);
     }
   }

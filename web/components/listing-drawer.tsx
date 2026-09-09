@@ -132,8 +132,8 @@ export function ListingDrawer({
         });
       }
       onGoalSaved();
-    } catch {
-      setGoalError("Não foi possível salvar a meta.");
+    } catch (err) {
+      setGoalError(err instanceof Error ? err.message : "Não foi possível salvar a meta.");
     } finally {
       setSavingGoal(false);
     }

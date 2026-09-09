@@ -59,8 +59,8 @@ export function AlertasPanel({ onDataChanged }: { onDataChanged?: () => void } =
       const result = await api<{ items: Alert[] }>("/api/v1/alerts", { query: { status: statusFilter || undefined } });
       setAlerts(result.items);
       onDataChanged?.();
-    } catch {
-      setError("Não foi possível carregar os alertas.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível carregar os alertas.");
     } finally {
       setLoading(false);
     }
@@ -94,8 +94,8 @@ export function AlertasPanel({ onDataChanged }: { onDataChanged?: () => void } =
     try {
       await api(`/api/v1/alerts/${alert.id}`, { method: "PATCH", body: { status } });
       await loadAlerts();
-    } catch {
-      setError("Não foi possível atualizar esse alerta.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível atualizar esse alerta.");
     }
   }
 
@@ -110,9 +110,10 @@ export function AlertasPanel({ onDataChanged }: { onDataChanged?: () => void } =
       await Promise.all(pending.map((alert) => api(`/api/v1/alerts/${alert.id}`, { method: "PATCH", body: { status: "resolved" } })));
       await loadAlerts();
       showToast(`${pending.length} alertas resolvidos.`, "success");
-    } catch {
-      setError("Não foi possível resolver todos os alertas desse grupo.");
-      showToast("Não foi possível resolver todos os alertas desse grupo.", "error");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Não foi possível resolver todos os alertas desse grupo.";
+      setError(message);
+      showToast(message, "error");
     } finally {
       setBulkResolving((prev) => {
         const next = new Set(prev);
@@ -138,8 +139,8 @@ export function AlertasPanel({ onDataChanged }: { onDataChanged?: () => void } =
       } else {
         showToast("Anúncio não encontrado.", "error");
       }
-    } catch {
-      showToast("Não foi possível abrir o anúncio.", "error");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Não foi possível abrir o anúncio.", "error");
     } finally {
       setLoadingListingId(null);
     }

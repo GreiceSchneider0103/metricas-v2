@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useApi } from "@/lib/auth-context";
 import type { NotificationItem, Paginated } from "@/lib/types";
@@ -18,12 +18,32 @@ export function NotificationsBell() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api<{ count: number }>("/api/v1/notifications/unread-count")
       .then((result) => setUnreadCount(result.count))
       .catch(() => {});
   }, [api]);
+
+  // Mesmo padrao do HeaderMenu (components/ui/header-menu.tsx): sem isso o
+  // dropdown so fechava clicando de novo no sino, nao clicando fora nem com Esc.
+  useEffect(() => {
+    if (!open) return;
+    function handlePointerDown(event: MouseEvent) {
+      if (containerRef.current?.contains(event.target as Node)) return;
+      setOpen(false);
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
 
   async function handleOpen() {
     setOpen((value) => !value);
@@ -75,7 +95,7 @@ export function NotificationsBell() {
   }
 
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <button
         onClick={handleOpen}
         className="relative rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
