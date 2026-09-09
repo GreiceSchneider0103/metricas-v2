@@ -157,6 +157,26 @@ async function syncOrdersForAccount(account: MagaluAccountRecord, startDate: str
   return { ordersUpserted, orderItemsUpserted };
 }
 
+const MAGALU_ORDERS_MAX_WINDOW_DAYS = 90;
+
+// A API de pedidos da Magalu rejeita (400 DATE_RANGE_EXCEDED) qualquer
+// janela de busca acima de 90 dias. syncOrdersForAccount manda pra API um
+// "to" igual a endDate+1 (pra cobrir o dia inteiro de endDate), entao um
+// intervalo de exatamente 90 dias -- o padrao do botao "Carregar historico
+// do periodo" -- ja vira uma janela de 91 dias e sempre falhava. Quebra o
+// intervalo pedido em janelas de no maximo 90 dias e soma os resultados.
+function splitDateRangeIntoWindows(startDate: string, endDate: string, maxDays: number) {
+  const windows: Array<{ start: string; end: string }> = [];
+  let windowStart = startDate;
+  while (windowStart <= endDate) {
+    const windowEnd = shiftIsoDate(windowStart, maxDays - 1);
+    const clampedEnd = windowEnd > endDate ? endDate : windowEnd;
+    windows.push({ start: windowStart, end: clampedEnd });
+    windowStart = shiftIsoDate(clampedEnd, 1);
+  }
+  return windows;
+}
+
 export async function syncMagaluOrdersForCompany(companyId: string, startDate: string, endDate: string) {
   const accounts = await getConnectedMagaluAccountsForCompany(companyId);
   let ordersUpserted = 0;
@@ -166,9 +186,11 @@ export async function syncMagaluOrdersForCompany(companyId: string, startDate: s
   for (const account of accounts) {
     const refreshed = await refreshMagaluAccountAccessToken(account as MagaluAccountRecord);
     if (!refreshed.access_token) continue;
-    const result = await syncOrdersForAccount(refreshed, startDate, endDate);
-    ordersUpserted += result.ordersUpserted;
-    orderItemsUpserted += result.orderItemsUpserted;
+    for (const window of splitDateRangeIntoWindows(startDate, endDate, MAGALU_ORDERS_MAX_WINDOW_DAYS)) {
+      const result = await syncOrdersForAccount(refreshed, window.start, window.end);
+      ordersUpserted += result.ordersUpserted;
+      orderItemsUpserted += result.orderItemsUpserted;
+    }
     accountsProcessed += 1;
   }
 
