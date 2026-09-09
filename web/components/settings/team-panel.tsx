@@ -28,8 +28,8 @@ function NewCompanyForm({ onCreated }: { onCreated: () => void }) {
       setName("");
       setOpen(false);
       onCreated();
-    } catch {
-      setError("Não foi possível criar a empresa.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível criar a empresa.");
     } finally {
       setCreating(false);
     }
@@ -105,8 +105,8 @@ function PlatformAdminApproval({ request, onDone }: { request: AccessRequest; on
         body: { role, companyId: selectedCompany.id }
       });
       onDone();
-    } catch {
-      setError("Não foi possível aprovar esse pedido.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível aprovar esse pedido.");
       setSubmitting(false);
     }
   }
@@ -116,8 +116,8 @@ function PlatformAdminApproval({ request, onDone }: { request: AccessRequest; on
     try {
       await api(`/api/v1/team/access-requests/${request.id}/reject`, { method: "POST" });
       onDone();
-    } catch {
-      setError("Não foi possível rejeitar esse pedido.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível rejeitar esse pedido.");
       setSubmitting(false);
     }
   }
@@ -249,8 +249,8 @@ export function TeamPanel() {
         const pending = await api<{ items: AccessRequest[] }>("/api/v1/team/access-requests");
         setRequests(pending.items);
       }
-    } catch {
-      setError("Não foi possível carregar a equipe.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível carregar a equipe.");
     } finally {
       setLoading(false);
     }
@@ -266,8 +266,8 @@ export function TeamPanel() {
     try {
       await api(`/api/v1/team/access-requests/${request.id}/approve`, { method: "POST", body: { role: requestedRole } });
       await loadMembers();
-    } catch {
-      setError("Não foi possível aprovar esse pedido.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível aprovar esse pedido.");
     } finally {
       setReviewingId(null);
     }
@@ -294,8 +294,8 @@ export function TeamPanel() {
       setEmail("");
       setInviteTabs(ALL_TABS);
       await loadMembers();
-    } catch {
-      setError("Não foi possível convidar esse usuário.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível convidar esse usuário.");
     } finally {
       setInviting(false);
     }
@@ -305,8 +305,8 @@ export function TeamPanel() {
     try {
       await api(`/api/v1/team/${member.userId}`, { method: "PATCH", body: { isActive: !member.isActive } });
       await loadMembers();
-    } catch {
-      setError("Não foi possível atualizar esse membro.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível atualizar esse membro.");
     }
   }
 

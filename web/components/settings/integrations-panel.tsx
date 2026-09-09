@@ -111,8 +111,8 @@ function IntegrationChannelCard({ channel }: { channel: ChannelConfig }) {
     try {
       const result = await api<IntegrationStatus>(`/api/v1/integrations/${channel.slug}`);
       setStatus(result);
-    } catch {
-      setError(`Não foi possível carregar o status da integração com ${channel.label}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `Não foi possível carregar o status da integração com ${channel.label}.`);
     } finally {
       setLoading(false);
     }
@@ -144,9 +144,10 @@ function IntegrationChannelCard({ channel }: { channel: ChannelConfig }) {
       await api(channel.syncPath, { method: "POST" });
       showToast(`Sincronização com ${channel.label} disparada.`, "success");
       await loadStatus();
-    } catch {
-      setError("Falha ao disparar a sincronização.");
-      showToast("Falha ao disparar a sincronização.", "error");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Falha ao disparar a sincronização.";
+      setError(message);
+      showToast(message, "error");
     } finally {
       setSyncing(false);
     }
@@ -167,9 +168,10 @@ function IntegrationChannelCard({ channel }: { channel: ChannelConfig }) {
       await api(`/api/v1/integrations/${channel.slug}/${accountId}/disconnect`, { method: "POST" });
       showToast(`Conta "${nickname}" desconectada.`, "success");
       await loadStatus();
-    } catch {
-      setError("Não foi possível desconectar essa conta.");
-      showToast("Não foi possível desconectar essa conta.", "error");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Não foi possível desconectar essa conta.";
+      setError(message);
+      showToast(message, "error");
     }
   }
 
@@ -201,8 +203,11 @@ function IntegrationChannelCard({ channel }: { channel: ChannelConfig }) {
         visitsSuffix = `, ${visits.listingsUpdated} atualizações de visitas`;
       }
       setBackfillMessage(`Período carregado: ${orders.ordersUpserted} pedidos, ${orders.orderItemsUpserted} itens${visitsSuffix}.`);
-    } catch {
-      setError("Falha ao carregar o histórico do período. Algumas etapas podem ter sido concluídas -- tente de novo.");
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : null;
+      setError(
+        `Falha ao carregar o histórico do período${detail ? `: ${detail}` : ""}. Algumas etapas podem ter sido concluídas -- tente de novo.`
+      );
     } finally {
       setBackfilling(false);
       setBackfillStage(null);

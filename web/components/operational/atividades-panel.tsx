@@ -66,8 +66,8 @@ export function AtividadesPanel({ onDataChanged }: { onDataChanged?: () => void 
       const result = await api<{ items: Task[] }>("/api/v1/tasks", { query: { status: statusFilter || undefined } });
       setTasks(result.items);
       onDataChanged?.();
-    } catch {
-      setError("Não foi possível carregar as tarefas.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível carregar as tarefas.");
     } finally {
       setLoading(false);
     }
@@ -130,8 +130,8 @@ export function AtividadesPanel({ onDataChanged }: { onDataChanged?: () => void 
       });
       resetForm();
       await loadTasks();
-    } catch {
-      setError("Não foi possível criar a tarefa.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível criar a tarefa.");
     } finally {
       setCreating(false);
     }
@@ -141,8 +141,8 @@ export function AtividadesPanel({ onDataChanged }: { onDataChanged?: () => void 
     try {
       await api(`/api/v1/tasks/${task.id}`, { method: "PATCH", body: { status } });
       await loadTasks();
-    } catch {
-      setError("Não foi possível atualizar essa tarefa.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível atualizar essa tarefa.");
     }
   }
 
@@ -171,8 +171,8 @@ export function AtividadesPanel({ onDataChanged }: { onDataChanged?: () => void 
     try {
       await api(`/api/v1/tasks/${task.id}`, { method: "PATCH", body: { dueDate: isoDate } });
       await loadTasks();
-    } catch {
-      setError("Não foi possível reagendar essa tarefa.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível reagendar essa tarefa.");
     }
   }
 

@@ -83,7 +83,7 @@ function ChangePasswordCard() {
     const { error: updateError } = await supabase.auth.updateUser({ password });
     setSubmitting(false);
     if (updateError) {
-      setError("Não foi possível atualizar a senha.");
+      setError(updateError.message || "Não foi possível atualizar a senha.");
       return;
     }
     setPassword("");

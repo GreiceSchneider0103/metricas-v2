@@ -101,8 +101,8 @@ export function TaskDrawer({
       });
       setSaved(true);
       onUpdated();
-    } catch {
-      setError("Não foi possível salvar as alterações.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível salvar as alterações.");
     } finally {
       setSaving(false);
     }
@@ -119,8 +119,8 @@ export function TaskDrawer({
       });
       setComments((prev) => [...prev, comment]);
       setCommentBody("");
-    } catch {
-      setError("Não foi possível adicionar o comentário.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível adicionar o comentário.");
     } finally {
       setPostingComment(false);
     }
